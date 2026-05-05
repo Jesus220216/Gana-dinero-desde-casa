@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contenido VIP - Gana Dinero</title>
+
+<!-- PayPal SDK -->
+<script src="https://www.paypal.com/sdk/js?client-id=AVWBdRXW8EqPqVJdGPZIv2UKvJSLvLCVNAVqKPHQtqSHNDrKLfMKDHVQCHVKBfYvPP5mGrXQVRLUVjKV&currency=USD"></script>
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+  color: white;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1200px;
+  margin: auto;
+  padding: 20px;
+}
+
+/* HEADER */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.header h1 {
+  font-size: 28px;
+  color: #a855f7;
+}
+
+.user-info {
+  text-align: right;
+}
+
+.user-email {
+  font-size: 14px;
+  color: #cbd5e1;
+  margin-bottom: 8px;
+}
+
+.vip-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.logout-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-left: 10px;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+/* AUTH BOX */
+.auth-box {
+  max-width: 500px;
+  margin: 50px auto;
+  padding: 30px;
+  background: rgba(15, 23, 42, 0.9);
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.1);
+}
+
+.auth-box h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #a855f7;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.8);
+  color: white;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #a855f7;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+.btn-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(168, 85, 247, 0.4);
+}
+
+.btn-secondary {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+  border: 1px solid #a855f7;
+}
+
+.btn-secondary:hover {
+  background: rgba(168, 85, 247, 0.3);
+}
+
+/* PANEL */
+.panel {
+  display: none;
+}
+
+.status-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.status-text {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.status-text.vip {
+  color: #a855f7;
+}
+
+.status-text.normal {
+  color: #38bdf8;
+}
+
+/* UPLOAD BOX */
+.upload-box {
+  display: none;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 12px;
+  border: 2px dashed rgba(34, 197, 94, 0.5);
+}
+
+.upload-box.active {
+  display: block;
+}
+
+.upload-box h3 {
+  margin-bottom: 15px;
+  color: #22c55e;
+}
+
+.file-input-wrapper {
+  position: relative;
+  margin-bottom: 15px;
+}
+
+.file-input-wrapper input[type="file"] {
+  display: none;
+}
+
+.file-input-label {
+  display: block;
+  padding: 15px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px dashed #22c55e;
+  border-radius: 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.file-input-label:hover {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.file-name {
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-top: 5px;
+}
+
+.upload-btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: black;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.upload-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(34, 197, 94, 0.4);
+}
+
+.upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* VIP SECTION */
+.vip-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1));
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  text-align: center;
+}
+
+.vip-section h3 {
+  margin-bottom: 15px;
+  color: #a855f7;
+  font-size: 20px;
+}
+
+.vip-section p {
+  margin-bottom: 15px;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.vip-benefits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.benefit {
+  padding: 10px;
+  background: rgba(168, 85, 247, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.vip-btn {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 16px;
+}
+
+.vip-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(168, 85, 247, 0.4);
+}
+
+#paypal-button-container {
+  margin-top: 15px;
+}
+
+/* GALLERY */
+.gallery-section {
+  margin-top: 30px;
+}
+
+.gallery-section h2 {
+  margin-bottom: 20px;
+  color: #a855f7;
+  font-size: 24px;
+}
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.gallery-item {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.gallery-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(168, 85, 247, 0.2);
+}
+
+.gallery-item img,
+.gallery-item video {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-item.locked {
+  opacity: 0.5;
+  position: relative;
+}
+
+.gallery-item.locked::after {
+  content: "🔒 VIP";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.empty-gallery {
+  text-align: center;
+  padding: 40px;
+  color: #cbd5e1;
+}
+
+.empty-gallery p {
+  font-size: 16px;
+}
+
+/* LOADING */
+.loading {
+  display: none;
+  text-align: center;
+  padding: 20px;
+}
+
+.loading.active {
+  display: block;
+}
+
+.spinner {
+  display: inline-block;
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(168, 85, 247, 0.3);
+  border-top-color: #a855f7;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+
+  .user-info {
+    text-align: center;
+  }
+
+  .logout-btn {
+    margin-left: 0;
+    margin-top: 10px;
+  }
+
+  .gallery {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .btn-group {
+    flex-direction: column;
+  }
+}
+
+/* ALERT */
+.alert {
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+  display: none;
+}
+
+.alert.show {
+  display: block;
+}
+
+.alert.success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid #22c55e;
+  color: #22c55e;
+}
+
+.alert.error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+}
+
+.alert.info {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- AUTH BOX -->
+  <div id="authBox" class="auth-box">
+    <h2>🔒 Acceso a Contenido Exclusivo</h2>
+    
+    <div class="form-group">
+      <label for="email">Correo Electrónico</label>
+      <input type="email" id="email" placeholder="tu@email.com">
+    </div>
+    
+    <div class="form-group">
+      <label for="password">Contraseña</label>
+      <input type="password" id="password" placeholder="Mínimo 6 caracteres">
+    </div>
+    
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="register()">Registrarse</button>
+      <button class="btn btn-secondary" onclick="login()">Entrar</button>
+    </div>
+  </div>
+
+  <!-- PANEL -->
+  <div id="panel" class="panel">
+    
+    <!-- HEADER -->
+    <div class="header">
+      <h1>🎬 Contenido Exclusivo</h1>
+      <div class="user-info">
+        <div class="user-email" id="userEmail"></div>
+        <div>
+          <span id="vipBadge" class="vip-badge" style="display:none;">⭐ VIP ACTIVO</span>
+          <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div id="alertContainer"></div>
+
+    <!-- UPLOAD BOX (Solo VIP) -->
+    <div id="uploadBox" class="upload-box">
+      <h3>📤 Subir Contenido</h3>
+      
+      <div class="file-input-wrapper">
+        <input type="file" id="fileInput" accept="image/*,video/*">
+        <label for="fileInput" class="file-input-label">
+          📁 Selecciona una imagen o video
+          <div class="file-name" id="fileName"></div>
+        </label>
+      </div>
+      
+      <button class="upload-btn" id="uploadBtn" onclick="upload()" disabled>Subir Contenido</button>
+    </div>
+
+    <!-- VIP SECTION (No VIP) -->
+    <div id="vipSection" class="vip-section" style="display:none;">
+      <h3>⭐ Obtén Acceso VIP</h3>
+      <p>Sube tu contenido exclusivo, gana dinero y monetiza tus videos.</p>
+      
+      <div class="vip-benefits">
+        <div class="benefit">✅ Subir videos ilimitados</div>
+        <div class="benefit">✅ Acceso a contenido premium</div>
+        <div class="benefit">✅ Monetización completa</div>
+        <div class="benefit">✅ Soporte prioritario</div>
+      </div>
+      
+      <p style="font-size: 18px; font-weight: bold; margin: 15px 0;">💰 $9.99 USD / Mes</p>
+      
+      <div id="paypal-button-container"></div>
+    </div>
+
+    <!-- GALLERY -->
+    <div class="gallery-section">
+      <h2>📺 Galería de Contenido</h2>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Cargando contenido...</p>
+      </div>
+      <div class="gallery" id="gallery"></div>
+      <div class="empty-gallery" id="emptyGallery" style="display:none;">
+        <p>No hay contenido disponible aún.</p>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgJITFOGXw-r5KYzz1zHlNz1jKw-_XMwM",
+  authDomain: "monetizacion-pro.firebaseapp.com",
+  projectId: "monetizacion-pro",
+  storageBucket: "monetizacion-pro.appspot.com",
+  messagingSenderId: "580361577178",
+  appId: "1:580361577178:web:b86b0a8301e94b93997be3"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+// DOM Elements
+const authBox = document.getElementById("authBox");
+const panel = document.getElementById("panel");
+const gallery = document.getElementById("gallery");
+const uploadBox = document.getElementById("uploadBox");
+const vipSection = document.getElementById("vipSection");
+const vipBadge = document.getElementById("vipBadge");
+const userEmail = document.getElementById("userEmail");
+const fileInput = document.getElementById("fileInput");
+const fileName = document.getElementById("fileName");
+const uploadBtn = document.getElementById("uploadBtn");
+const loading = document.getElementById("loading");
+const emptyGallery = document.getElementById("emptyGallery");
+const alertContainer = document.getElementById("alertContainer");
+
+let currentUser = null;
+let isVIP = false;
+
+// ALERT FUNCTION
+function showAlert(message, type = "info") {
+  const alert = document.createElement("div");
+  alert.className = `alert ${type} show`;
+  alert.textContent = message;
+  alertContainer.appendChild(alert);
+  
+  setTimeout(() => {
+    alert.remove();
+  }, 4000);
+}
+
+// AUTH FUNCTIONS
+window.register = async () => {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+  
+  if (!email || !password) {
+    showAlert("Por favor completa todos los campos", "error");
+    return;
+  }
+  
+  if (password.length < 6) {
+    showAlert("La contraseña debe tener al menos 6 caracteres", "error");
+    return;
+  }
+  
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    
+    // Create user document
+    await setDoc(doc(db, "users", userCredential.user.uid), {
+      email: email,
+      vip: false,
+      createdAt: new Date().toISOString(),
+      vip_expire: null
+    });
+    
+    showAlert("¡Registro exitoso! Bienvenido", "success");
+  } catch (error) {
+    if (error.code === "auth/email-already-in-use") {
+      showAlert("Este correo ya está registrado", "error");
+    } else if (error.code === "auth/weak-password") {
+      showAlert("La contraseña es muy débil", "error");
+    } else {
+      showAlert("Error en el registro: " + error.message, "error");
+    }
+  }
+};
+
+window.login = async () => {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+  
+  if (!email || !password) {
+    showAlert("Por favor completa todos los campos", "error");
+    return;
+  }
+  
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    showAlert("¡Bienvenido de vuelta!", "success");
+  } catch (error) {
+    if (error.code === "auth/user-not-found") {
+      showAlert("Usuario no encontrado", "error");
+    } else if (error.code === "auth/wrong-password") {
+      showAlert("Contraseña incorrecta", "error");
+    } else {
+      showAlert("Error en el inicio de sesión: " + error.message, "error");
+    }
+  }
+};
+
+window.logout = async () => {
+  await signOut(auth);
+  showAlert("Sesión cerrada", "info");
+};
+
+// FILE INPUT CHANGE
+fileInput.addEventListener("change", (e) => {
+  if (e.target.files.length > 0) {
+    const file = e.target.files[0];
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    
+    if (file.size > maxSize) {
+      showAlert("El archivo es demasiado grande (máximo 100MB)", "error");
+      fileInput.value = "";
+      fileName.textContent = "";
+      uploadBtn.disabled = true;
+      return;
+    }
+    
+    fileName.textContent = `✓ ${file.name}`;
+    uploadBtn.disabled = false;
+  }
+});
+
+// UPLOAD FUNCTION
+window.upload = async () => {
+  const file = fileInput.files[0];
+  if (!file) {
+    showAlert("Selecciona un archivo", "error");
+    return;
+  }
+  
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = "Subiendo...";
+  
+  try {
+    // Crear FormData para enviar al servidor
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("userId", currentUser.uid);
+    formData.append("title", file.name);
+    
+    // Subir al servidor local
+    const response = await fetch("/upload-local", {
+      method: "POST",
+      body: formData
+    });
+    
+    const data = await response.json();
+    
+    if (data.ok) {
+      showAlert("¡Contenido subido exitosamente!", "success");
+      fileInput.value = "";
+      fileName.textContent = "";
+      uploadBtn.textContent = "Subir Contenido";
+      uploadBtn.disabled = true;
+      loadGallery();
+    } else {
+      showAlert("Error: " + data.error, "error");
+      uploadBtn.textContent = "Subir Contenido";
+      uploadBtn.disabled = false;
+    }
+  } catch (error) {
+    showAlert("Error al subir: " + error.message, "error");
+    uploadBtn.textContent = "Subir Contenido";
+    uploadBtn.disabled = false;
+  }
+};
+
+// LOAD GALLERY
+async function loadGallery() {
+  loading.classList.add("active");
+  gallery.innerHTML = "";
+  
+  try {
+    const response = await fetch("/api/media");
+    const result = await response.json();
+    
+    if (!result.ok || !result.media || result.media.length === 0) {
+      emptyGallery.style.display = "block";
+      loading.classList.remove("active");
+      return;
+    }
+    
+    emptyGallery.style.display = "none";
+    
+    result.media.forEach(media => {
+      const item = document.createElement("div");
+      item.className = "gallery-item";
+      
+      if (media.vip && !isVIP) {
+        item.classList.add("locked");
+      }
+      
+      if (media.type.startsWith("image")) {
+        const img = document.createElement("img");
+        img.src = media.url;
+        img.alt = media.title || "Imagen";
+        item.appendChild(img);
+      } else if (media.type.startsWith("video")) {
+        const video = document.createElement("video");
+        video.src = media.url;
+        video.controls = true;
+        item.appendChild(video);
+      }
+      
+      gallery.appendChild(item);
+    });
+  } catch (error) {
+    showAlert("Error al cargar la galería: " + error.message, "error");
+  } finally {
+    loading.classList.remove("active");
+  }
+}
+
+// AUTH STATE CHANGE
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = user;
+    authBox.style.display = "none";
+    panel.style.display = "block";
+    userEmail.textContent = user.email;
+    
+    // Get user data
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      isVIP = userData.vip || false;
+      
+      // Check if VIP has expired
+      if (isVIP && userData.vip_expire) {
+        if (new Date().getTime() > userData.vip_expire) {
+          isVIP = false;
+          await setDoc(doc(db, "users", user.uid), { vip: false }, { merge: true });
+        }
+      }
+    } else {
+      // Create user document if doesn't exist
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        vip: false,
+        createdAt: new Date().toISOString(),
+        vip_expire: null
+      });
+    }
+    
+    // Update UI
+    if (isVIP) {
+      vipBadge.style.display = "inline-block";
+      uploadBox.classList.add("active");
+      vipSection.style.display = "none";
+    } else {
+      vipBadge.style.display = "none";
+      uploadBox.classList.remove("active");
+      vipSection.style.display = "block";
+      initPayPalButton();
+    }
+    
+    loadGallery();
+  } else {
+    currentUser = null;
+    authBox.style.display = "block";
+    panel.style.display = "none";
+    document.getElementById("email").value = "";
+    document.getElementById("password").value = "";
+  }
+});
+
+// PAYPAL BUTTON
+function initPayPalButton() {
+  const container = document.getElementById("paypal-button-container");
+  
+  // Clear previous buttons
+  container.innerHTML = "";
+  
+  paypal.Buttons({
+    createOrder: (data, actions) => {
+      return actions.order.create({
+        purchase_units: [{
+          amount: {
+            value: "9.99"
+          }
+        }]
+      });
+    },
+    onApprove: async (data, actions) => {
+      try {
+        const order = await actions.order.capture();
+        
+        // Verify payment and activate VIP
+        const response = await fetch("/verify-paypal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            email: currentUser.email,
+            orderId: order.id
+          })
+        });
+        
+        if (response.ok) {
+          // Update user VIP status
+          await setDoc(doc(db, "users", currentUser.uid), {
+            vip: true,
+            vip_expire: Date.now() + (30 * 24 * 60 * 60 * 1000)
+          }, { merge: true });
+          
+          showAlert("¡Suscripción VIP activada! Recarga la página", "success");
+          setTimeout(() => location.reload(), 2000);
+        }
+      } catch (error) {
+        showAlert("Error al procesar el pago: " + error.message, "error");
+      }
+    },
+    onError: (err) => {
+      showAlert("Error en PayPal: " + err, "error");
+    }
+  }).render("#paypal-button-container");
+}
+
+// Load gallery on start
+loadGallery();
+
+</script>
+
+</body>
+</html>
