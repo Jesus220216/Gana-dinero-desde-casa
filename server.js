@@ -5,6 +5,10 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,82 +17,50 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// 🔥 CREAR CARPETA DE UPLOADS SI NO EXISTE
-const uploadsDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// 🔥 CONFIGURAR MULTER PARA SUBIDAS LOCALES
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
+// 🔥 CONFIGURACIÓN DE CLOUDFLARE R2
+const s3Client = new S3Client({
+  region: "auto",
+  endpoint: process.env.R2_ENDPOINT, // Ejemplo: https://<accountid>.r2.cloudflarestorage.com
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
   },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext);
-    cb(null, `${name}-${uniqueSuffix}${ext}`);
-  }
 });
 
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL; // Ejemplo: https://pub-xxx.r2.dev o tu dominio
+
+// 🔥 CONFIGURAR MULTER PARA MEMORIA (Para subir directo a R2)
+const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = [
-      "video/mp4",
-      "video/webm",
-      "video/quicktime",
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp"
-    ];
-    
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Tipo de archivo no permitido"));
-    }
-  }
+  limits: { fileSize: 500 * 1024 * 1024 } // 500MB
 });
 
 // 🔥 FIREBASE ADMIN INITIALIZATION
 let serviceAccount = null;
 const serviceAccountPath = path.join(__dirname, "serviceAccountKey.json");
 
-// Intentar cargar desde archivo
 if (fs.existsSync(serviceAccountPath)) {
   serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
-  console.log("✅ Firebase cargado desde archivo local");
-}
-// Si no existe, intentar cargar desde variable de entorno
-else if (process.env.FIREBASE_CONFIG_JSON) {
+} else if (process.env.FIREBASE_CONFIG_JSON) {
   try {
     serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG_JSON);
-    console.log("✅ Firebase cargado desde variable de entorno");
   } catch (error) {
-    console.error("❌ Error al parsear FIREBASE_CONFIG_JSON:", error.message);
+    console.error("❌ Error al parsear FIREBASE_CONFIG_JSON");
   }
 }
 
-// Si aún no hay configuración, mostrar error
 if (!serviceAccount) {
   console.error("❌ Error: No se encontró configuración de Firebase");
-  console.error("   Opción 1: Coloca serviceAccountKey.json en la raíz del proyecto");
-  console.error("   Opción 2: Define la variable FIREBASE_CONFIG_JSON en Render");
   process.exit(1);
 }
 
-// Inicializar Firebase
 try {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });
-  console.log("✅ Firebase Admin inicializado correctamente");
+  console.log("✅ Firebase Admin inicializado");
 } catch (error) {
   console.error("❌ Error al inicializar Firebase:", error.message);
   process.exit(1);
@@ -96,7 +68,52 @@ try {
 
 const db = admin.firestore();
 
-// 🔥 ENDPOINT PARA OBTENER CONFIGURACIÓN DEL FRONTEND
+// 🔥 ENDPOINT PARA SUBIR A CLOUDFLARE R2
+app.post("/upload-r2", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ ok: false, error: "No se envió archivo" });
+    }
+
+    const fileName = `${Date.now()}-${req.file.originalname}`;
+    const key = `uploads/${req.body.userId || 'anonymous'}/${fileName}`;
+
+    // Subir a R2
+    const uploadParams = {
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    };
+
+    await s3Client.send(new PutObjectCommand(uploadParams));
+    
+    const fileUrl = `${R2_PUBLIC_URL}/${key}`;
+
+    // Guardar referencia en Firebase Firestore
+    await db.collection("media").add({
+      url: fileUrl,
+      type: req.file.mimetype,
+      vip: true,
+      uploadedBy: req.body.userId || "unknown",
+      uploadedAt: new Date().toISOString(),
+      title: req.body.title || req.file.originalname,
+      storageType: "cloudflare-r2",
+      fileSize: req.file.size
+    });
+
+    res.json({
+      ok: true,
+      message: "Archivo subido a R2 y registrado en Firebase",
+      url: fileUrl
+    });
+  } catch (error) {
+    console.error("Error en /upload-r2:", error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Mantener los otros endpoints de Firebase...
 app.get("/api/config", (req, res) => {
   res.json({
     ok: true,
@@ -109,251 +126,69 @@ app.get("/api/config", (req, res) => {
   });
 });
 
-// 🔥 ENDPOINT DE SUBIDA LOCAL
-app.post("/upload-local", upload.single("file"), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ ok: false, error: "No se envió archivo" });
-    }
-
-    const fileUrl = `/uploads/${req.file.filename}`;
-    const fileType = req.file.mimetype;
-
-    // Guardar referencia en Firebase
-    await admin.firestore().collection("media").add({
-      url: fileUrl,
-      type: fileType,
-      vip: true,
-      uploadedBy: req.body.userId,
-      uploadedAt: new Date().toISOString(),
-      title: req.body.title || req.file.originalname,
-      storageType: "local",
-      fileSize: req.file.size
-    });
-
-    res.json({
-      ok: true,
-      message: "Archivo subido exitosamente",
-      url: fileUrl,
-      filename: req.file.filename
-    });
-  } catch (error) {
-    console.error("Error en /upload-local:", error);
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-// 🔥 ENDPOINT DE SUBIDA A FIREBASE (OPCIONAL)
-app.post("/upload-firebase", async (req, res) => {
-  try {
-    const { url, type, userId, title } = req.body;
-
-    if (!url || !type) {
-      return res.status(400).json({ ok: false, error: "Faltan parámetros" });
-    }
-
-    await admin.firestore().collection("media").add({
-      url: url,
-      type: type,
-      vip: true,
-      uploadedBy: userId,
-      uploadedAt: new Date().toISOString(),
-      title: title || "Sin título",
-      storageType: "firebase"
-    });
-
-    res.json({ ok: true, message: "Contenido registrado en Firebase" });
-  } catch (error) {
-    console.error("Error en /upload-firebase:", error);
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-// 🔥 OBTENER LISTA DE MEDIOS
 app.get("/api/media", async (req, res) => {
   try {
-    const snap = await admin.firestore().collection("media").get();
+    const snap = await db.collection("media").get();
     const media = [];
-
-    snap.forEach(doc => {
-      media.push({
-        id: doc.id,
-        ...doc.data()
-      });
-    });
-
+    snap.forEach(doc => media.push({ id: doc.id, ...doc.data() }));
     res.json({ ok: true, media: media });
   } catch (error) {
-    console.error("Error en /api/media:", error);
     res.status(500).json({ ok: false, error: error.message });
   }
 });
 
-// 🔥 VERIFY PAYPAL PAYMENT AND ACTIVATE VIP
 app.post("/verify-paypal", async (req, res) => {
   try {
     const { email, orderId } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ ok: false, error: "Email requerido" });
-    }
-
-    // Find user by email
-    const snap = await db.collection("users")
-      .where("email", "==", email)
-      .get();
-
-    if (snap.empty) {
-      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
-    }
-
-    // Update all matching users (should be only one)
+    const snap = await db.collection("users").where("email", "==", email).get();
+    if (snap.empty) return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
     const batch = db.batch();
     snap.forEach((doc) => {
       batch.update(doc.ref, {
         vip: true,
-        vip_expire: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 días
+        vip_expire: Date.now() + (30 * 24 * 60 * 60 * 1000),
         lastPaymentDate: new Date().toISOString(),
         lastOrderId: orderId || null
       });
     });
-
     await batch.commit();
-
-    res.json({ 
-      ok: true, 
-      message: "VIP activado exitosamente",
-      expiresIn: "30 días"
-    });
+    res.json({ ok: true, message: "VIP activado" });
   } catch (error) {
-    console.error("Error en /verify-paypal:", error);
     res.status(500).json({ ok: false, error: error.message });
   }
 });
 
-// 🔥 GET USER VIP STATUS
 app.post("/check-vip", async (req, res) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ ok: false, vip: false });
-    }
-
-    const snap = await db.collection("users")
-      .where("email", "==", email)
-      .get();
-
-    if (snap.empty) {
-      return res.json({ ok: true, vip: false });
-    }
-
+    const snap = await db.collection("users").where("email", "==", email).get();
+    if (snap.empty) return res.json({ ok: true, vip: false });
     let isVIP = false;
     snap.forEach((doc) => {
       const data = doc.data();
-      
-      // Check if VIP has expired
-      if (data.vip && data.vip_expire) {
-        if (Date.now() < data.vip_expire) {
-          isVIP = true;
-        } else {
-          // VIP expired, update document
-          doc.ref.update({ vip: false });
-        }
-      } else if (data.vip) {
-        isVIP = true;
-      }
+      if (data.vip && data.vip_expire && Date.now() < data.vip_expire) isVIP = true;
+      else if (data.vip && !data.vip_expire) isVIP = true;
     });
-
     res.json({ ok: true, vip: isVIP });
   } catch (error) {
-    console.error("Error en /check-vip:", error);
-    res.status(500).json({ ok: false, vip: false, error: error.message });
+    res.status(500).json({ ok: false, vip: false });
   }
 });
 
-// 🔥 GET ALL USERS (ADMIN)
 app.get("/admin-users", async (req, res) => {
   try {
     const users = [];
     const snap = await db.collection("users").get();
-
-    snap.forEach((doc) => {
-      const data = doc.data();
-      users.push({
-        uid: doc.id,
-        email: data.email,
-        vip: data.vip || false,
-        vip_expire: data.vip_expire || null,
-        createdAt: data.createdAt || null,
-        lastPaymentDate: data.lastPaymentDate || null
-      });
-    });
-
-    res.json({ ok: true, users: users, total: users.length });
+    snap.forEach((doc) => users.push({ uid: doc.id, ...doc.data() }));
+    res.json({ ok: true, users: users });
   } catch (error) {
-    console.error("Error en /admin-users:", error);
     res.status(500).json({ ok: false, error: error.message });
   }
 });
 
-// 🔥 GET MEDIA STATS
-app.get("/media-stats", async (req, res) => {
-  try {
-    const mediaSnap = await db.collection("media").get();
-    const usersSnap = await db.collection("users").get();
+app.get("/health", (req, res) => res.json({ ok: true }));
 
-    let totalVIPUsers = 0;
-    let totalMedia = mediaSnap.size;
-    let totalUsers = usersSnap.size;
-
-    usersSnap.forEach((doc) => {
-      const data = doc.data();
-      if (data.vip) {
-        totalVIPUsers++;
-      }
-    });
-
-    res.json({
-      ok: true,
-      stats: {
-        totalUsers: totalUsers,
-        totalVIPUsers: totalVIPUsers,
-        totalMedia: totalMedia,
-        vipPercentage: totalUsers > 0 ? ((totalVIPUsers / totalUsers) * 100).toFixed(2) : 0
-      }
-    });
-  } catch (error) {
-    console.error("Error en /media-stats:", error);
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-// 🔥 HEALTH CHECK
-app.get("/health", (req, res) => {
-  res.json({ ok: true, message: "Servidor funcionando correctamente" });
-});
-
-// 🔥 ERROR HANDLING MIDDLEWARE
-app.use((err, req, res, next) => {
-  console.error("Error no manejado:", err);
-  
-  if (err instanceof multer.MulterError) {
-    if (err.code === "FILE_TOO_LARGE") {
-      return res.status(400).json({ ok: false, error: "Archivo demasiado grande (máximo 500MB)" });
-    }
-    return res.status(400).json({ ok: false, error: err.message });
-  }
-  
-  res.status(500).json({ ok: false, error: "Error interno del servidor" });
-});
-
-// 🔥 START SERVER
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Servidor ejecutándose en http://localhost:${PORT}`);
-  console.log(`📊 Panel admin: http://localhost:${PORT}/admin.html`);
-  console.log(`🎬 Dashboard: http://localhost:${PORT}/dashboard.html`);
-  console.log(`🏠 Inicio: http://localhost:${PORT}/index.html`);
-  console.log(`📁 Carpeta de uploads: ${uploadsDir}`);
+  console.log(`✅ Servidor en puerto ${PORT}`);
 });
