@@ -704,43 +704,46 @@ fileInput.addEventListener("change", (e) => {
   }
 });
 
-// UPLOAD FUNCTION
-window.upload = async () => {
-  const file = fileInput.files[0];
-  if (!file) {
-    showAlert("Selecciona un archivo", "error");
-    return;
-  }
-  
-  uploadBtn.disabled = true;
-  uploadBtn.textContent = "Subiendo...";
-  
-  try {
-    const fileRef = ref(storage, `uploads/${currentUser.uid}/${Date.now()}_${file.name}`);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
-    
-    await addDoc(collection(db, "media"), {
-      url: url,
-      type: file.type,
-      vip: true,
-      uploadedBy: currentUser.uid,
-      uploadedAt: new Date().toISOString(),
-      title: file.name
-    });
-    
-    showAlert("¡Contenido subido exitosamente!", "success");
-    fileInput.value = "";
-    fileName.textContent = "";
-    uploadBtn.textContent = "Subir Contenido";
-    uploadBtn.disabled = true;
-    loadGallery();
-  } catch (error) {
-    showAlert("Error al subir: " + error.message, "error");
-    uploadBtn.textContent = "Subir Contenido";
-    uploadBtn.disabled = false;
-  }
-};
+// UPLOAD FUNCTION (Híbrido: Archivo a R2 vía Backend, Registro en Firestore)
+	window.upload = async () => {
+	  const file = fileInput.files[0];
+	  if (!file) {
+	    showAlert("Selecciona un archivo", "error");
+	    return;
+	  }
+	  
+	  uploadBtn.disabled = true;
+	  uploadBtn.textContent = "Subiendo a R2...";
+	  
+	  try {
+	    const formData = new FormData();
+	    formData.append("file", file);
+	    formData.append("userId", currentUser.uid);
+	    formData.append("title", file.name);
+
+	    const response = await fetch("/upload-r2", {
+	      method: "POST",
+	      body: formData
+	    });
+
+	    const data = await response.json();
+	    
+	    if (data.ok) {
+	      showAlert("¡Contenido subido a Cloudflare R2!", "success");
+	      fileInput.value = "";
+	      fileName.textContent = "";
+	      uploadBtn.textContent = "Subir Contenido";
+	      uploadBtn.disabled = true;
+	      loadGallery();
+	    } else {
+	      throw new Error(data.error || "Error en la subida");
+	    }
+	  } catch (error) {
+	    showAlert("Error al subir: " + error.message, "error");
+	    uploadBtn.textContent = "Subir Contenido";
+	    uploadBtn.disabled = false;
+	  }
+	};
 
 // LOAD GALLERY
 async function loadGallery() {
