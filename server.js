@@ -35,7 +35,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 500 * 1024 * 1024
+    fileSize: 500 * 1024 * 1024 // 500MB
   },
   fileFilter: (req, file, cb) => {
     const allowedMimes = [
@@ -56,27 +56,15 @@ const upload = multer({
   }
 });
 
-// 🔥 FIREBASE ADMIN INITIALIZATION (REPARADO)
-let serviceAccount;
+// 🔥 FIREBASE ADMIN INITIALIZATION
+const serviceAccountPath = path.join(__dirname, "serviceAccountKey.json");
 
-if (process.env.FIREBASE_PRIVATE_KEY) {
-  // ✅ PRODUCCIÓN (Render)
-  serviceAccount = {
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-  };
-} else {
-  // ✅ LOCAL (archivo JSON)
-  const serviceAccountPath = path.join(__dirname, "serviceAccountKey.json");
-
-  if (!fs.existsSync(serviceAccountPath)) {
-    console.error("❌ No hay Firebase config (ni ENV ni JSON)");
-    process.exit(1);
-  }
-
-  serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
+if (!fs.existsSync(serviceAccountPath)) {
+  console.error("❌ Error: serviceAccountKey.json no encontrado en", serviceAccountPath);
+  process.exit(1);
 }
+
+const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
@@ -94,6 +82,7 @@ app.post("/upload-local", upload.single("file"), async (req, res) => {
     const fileUrl = `/uploads/${req.file.filename}`;
     const fileType = req.file.mimetype;
 
+    // Guardar referencia en Firebase
     await admin.firestore().collection("media").add({
       url: fileUrl,
       type: fileType,
@@ -172,6 +161,7 @@ app.post("/verify-paypal", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Email requerido" });
     }
 
+    // Find user by email
     const snap = await db.collection("users")
       .where("email", "==", email)
       .get();
@@ -180,11 +170,12 @@ app.post("/verify-paypal", async (req, res) => {
       return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
     }
 
+    // Update all matching users (should be only one)
     const batch = db.batch();
     snap.forEach((doc) => {
       batch.update(doc.ref, {
         vip: true,
-        vip_expire: Date.now() + (30 * 24 * 60 * 60 * 1000),
+        vip_expire: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 días
         lastPaymentDate: new Date().toISOString(),
         lastOrderId: orderId || null
       });
@@ -224,10 +215,12 @@ app.post("/check-vip", async (req, res) => {
     snap.forEach((doc) => {
       const data = doc.data();
       
+      // Check if VIP has expired
       if (data.vip && data.vip_expire) {
         if (Date.now() < data.vip_expire) {
           isVIP = true;
         } else {
+          // VIP expired, update document
           doc.ref.update({ vip: false });
         }
       } else if (data.vip) {
@@ -321,5 +314,9 @@ app.use((err, req, res, next) => {
 // 🔥 START SERVER
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Servidor ejecutándose en puerto ${PORT}`);
+  console.log(`✅ Servidor ejecutándose en http://localhost:${PORT}`);
+  console.log(`📊 Panel admin: http://localhost:${PORT}/admin.html`);
+  console.log(`🎬 Dashboard: http://localhost:${PORT}/dashboard.html`);
+  console.log(`🏠 Inicio: http://localhost:${PORT}/index.html`);
+  console.log(`📁 Carpeta de uploads: ${uploadsDir}`);
 });
