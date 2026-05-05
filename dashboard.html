@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contenido VIP - Gana Dinero</title>
 
-<!-- PayPal SDK (Se carga dinámicamente) -->
-<script id="paypal-sdk"></script>
+<!-- PayPal SDK -->
+<script src="https://www.paypal.com/sdk/js?client-id=AVWBdRXW8EqPqVJdGPZIv2UKvJSLvLCVNAVqKPHQtqSHNDrKLfMKDHVQCHVKBfYvPP5mGrXQVRLUVjKV&currency=USD"></script>
 
 <style>
 * {
@@ -606,35 +606,6 @@ const alertContainer = document.getElementById("alertContainer");
 
 let currentUser = null;
 let isVIP = false;
-let appConfig = {};
-
-// CARGAR CONFIGURACION DESDE EL SERVIDOR
-async function loadConfig() {
-  try {
-    const response = await fetch("/api/config");
-    const data = await response.json();
-    if (data.ok) {
-      appConfig = data.config;
-      loadPayPalSDK();
-    }
-  } catch (error) {
-    console.error("Error cargando config:", error);
-    appConfig = {
-      paypalClientId: "AVxAbIDajf-qYOp-mGm6RSGrkqfB6HHk61_QsjUs3S7aBtAYjByJX1SXCbkwKzChYHGgkyuTSU7KznGJ",
-      paypalMode: "sandbox",
-      vipPrice: "9.99",
-      vipDurationDays: "30"
-    };
-    loadPayPalSDK();
-  }
-}
-
-function loadPayPalSDK() {
-  const script = document.getElementById("paypal-sdk");
-  script.src = `https://www.paypal.com/sdk/js?client-id=${appConfig.paypalClientId}&currency=USD`;
-}
-
-loadConfig();
 
 // ALERT FUNCTION
 function showAlert(message, type = "info") {
@@ -745,32 +716,25 @@ window.upload = async () => {
   uploadBtn.textContent = "Subiendo...";
   
   try {
-    // Crear FormData para enviar al servidor
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("userId", currentUser.uid);
-    formData.append("title", file.name);
+    const fileRef = ref(storage, `uploads/${currentUser.uid}/${Date.now()}_${file.name}`);
+    await uploadBytes(fileRef, file);
+    const url = await getDownloadURL(fileRef);
     
-    // Subir al servidor local
-    const response = await fetch("/upload-local", {
-      method: "POST",
-      body: formData
+    await addDoc(collection(db, "media"), {
+      url: url,
+      type: file.type,
+      vip: true,
+      uploadedBy: currentUser.uid,
+      uploadedAt: new Date().toISOString(),
+      title: file.name
     });
     
-    const data = await response.json();
-    
-    if (data.ok) {
-      showAlert("¡Contenido subido exitosamente!", "success");
-      fileInput.value = "";
-      fileName.textContent = "";
-      uploadBtn.textContent = "Subir Contenido";
-      uploadBtn.disabled = true;
-      loadGallery();
-    } else {
-      showAlert("Error: " + data.error, "error");
-      uploadBtn.textContent = "Subir Contenido";
-      uploadBtn.disabled = false;
-    }
+    showAlert("¡Contenido subido exitosamente!", "success");
+    fileInput.value = "";
+    fileName.textContent = "";
+    uploadBtn.textContent = "Subir Contenido";
+    uploadBtn.disabled = true;
+    loadGallery();
   } catch (error) {
     showAlert("Error al subir: " + error.message, "error");
     uploadBtn.textContent = "Subir Contenido";
@@ -784,10 +748,9 @@ async function loadGallery() {
   gallery.innerHTML = "";
   
   try {
-    const response = await fetch("/api/media");
-    const result = await response.json();
+    const snap = await getDocs(collection(db, "media"));
     
-    if (!result.ok || !result.media || result.media.length === 0) {
+    if (snap.empty) {
       emptyGallery.style.display = "block";
       loading.classList.remove("active");
       return;
@@ -795,22 +758,24 @@ async function loadGallery() {
     
     emptyGallery.style.display = "none";
     
-    result.media.forEach(media => {
+    snap.forEach(doc => {
+      const data = doc.data();
       const item = document.createElement("div");
       item.className = "gallery-item";
       
-      if (media.vip && !isVIP) {
+      // Check if content is locked
+      if (data.vip && !isVIP) {
         item.classList.add("locked");
       }
       
-      if (media.type.startsWith("image")) {
+      if (data.type.startsWith("image")) {
         const img = document.createElement("img");
-        img.src = media.url;
-        img.alt = media.title || "Imagen";
+        img.src = data.url;
+        img.alt = data.title || "Imagen";
         item.appendChild(img);
-      } else if (media.type.startsWith("video")) {
+      } else if (data.type.startsWith("video")) {
         const video = document.createElement("video");
-        video.src = media.url;
+        video.src = data.url;
         video.controls = true;
         item.appendChild(video);
       }
