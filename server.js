@@ -57,20 +57,57 @@ const upload = multer({
 });
 
 // 🔥 FIREBASE ADMIN INITIALIZATION
+let serviceAccount = null;
 const serviceAccountPath = path.join(__dirname, "serviceAccountKey.json");
 
-if (!fs.existsSync(serviceAccountPath)) {
-  console.error("❌ Error: serviceAccountKey.json no encontrado en", serviceAccountPath);
+// Intentar cargar desde archivo
+if (fs.existsSync(serviceAccountPath)) {
+  serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
+  console.log("✅ Firebase cargado desde archivo local");
+}
+// Si no existe, intentar cargar desde variable de entorno
+else if (process.env.FIREBASE_CONFIG_JSON) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG_JSON);
+    console.log("✅ Firebase cargado desde variable de entorno");
+  } catch (error) {
+    console.error("❌ Error al parsear FIREBASE_CONFIG_JSON:", error.message);
+  }
+}
+
+// Si aún no hay configuración, mostrar error
+if (!serviceAccount) {
+  console.error("❌ Error: No se encontró configuración de Firebase");
+  console.error("   Opción 1: Coloca serviceAccountKey.json en la raíz del proyecto");
+  console.error("   Opción 2: Define la variable FIREBASE_CONFIG_JSON en Render");
   process.exit(1);
 }
 
-const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+// Inicializar Firebase
+try {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log("✅ Firebase Admin inicializado correctamente");
+} catch (error) {
+  console.error("❌ Error al inicializar Firebase:", error.message);
+  process.exit(1);
+}
 
 const db = admin.firestore();
+
+// 🔥 ENDPOINT PARA OBTENER CONFIGURACIÓN DEL FRONTEND
+app.get("/api/config", (req, res) => {
+  res.json({
+    ok: true,
+    config: {
+      paypalClientId: process.env.PAYPAL_CLIENT_ID || "AVxAbIDajf-qYOp-mGm6RSGrkqfB6HHk61_QsjUs3S7aBtAYjByJX1SXCbkwKzChYHGgkyuTSU7KznGJ",
+      paypalMode: process.env.PAYPAL_MODE || "sandbox",
+      vipPrice: process.env.VIP_PRICE || "9.99",
+      vipDurationDays: process.env.VIP_DURATION_DAYS || "30"
+    }
+  });
+});
 
 // 🔥 ENDPOINT DE SUBIDA LOCAL
 app.post("/upload-local", upload.single("file"), async (req, res) => {

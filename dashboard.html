@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contenido VIP - Gana Dinero</title>
 
-<!-- PayPal SDK -->
-<script src="https://www.paypal.com/sdk/js?client-id=AVWBdRXW8EqPqVJdGPZIv2UKvJSLvLCVNAVqKPHQtqSHNDrKLfMKDHVQCHVKBfYvPP5mGrXQVRLUVjKV&currency=USD"></script>
+<!-- PayPal SDK (Se carga dinámicamente) -->
+<script id="paypal-sdk"></script>
 
 <style>
 * {
@@ -606,6 +606,35 @@ const alertContainer = document.getElementById("alertContainer");
 
 let currentUser = null;
 let isVIP = false;
+let appConfig = {};
+
+// CARGAR CONFIGURACION DESDE EL SERVIDOR
+async function loadConfig() {
+  try {
+    const response = await fetch("/api/config");
+    const data = await response.json();
+    if (data.ok) {
+      appConfig = data.config;
+      loadPayPalSDK();
+    }
+  } catch (error) {
+    console.error("Error cargando config:", error);
+    appConfig = {
+      paypalClientId: "AVxAbIDajf-qYOp-mGm6RSGrkqfB6HHk61_QsjUs3S7aBtAYjByJX1SXCbkwKzChYHGgkyuTSU7KznGJ",
+      paypalMode: "sandbox",
+      vipPrice: "9.99",
+      vipDurationDays: "30"
+    };
+    loadPayPalSDK();
+  }
+}
+
+function loadPayPalSDK() {
+  const script = document.getElementById("paypal-sdk");
+  script.src = `https://www.paypal.com/sdk/js?client-id=${appConfig.paypalClientId}&currency=USD`;
+}
+
+loadConfig();
 
 // ALERT FUNCTION
 function showAlert(message, type = "info") {
