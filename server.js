@@ -1,194 +1,161 @@
+// 🚀 MODO IMPERIO - SERVER COMPLETO
+
 import express from "express";
-import fetch from "node-fetch";
-import admin from "firebase-admin";
 import multer from "multer";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { fileURLToPath } from "url";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import dotenv from "dotenv";
 
-dotenv.config();
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+import admin from "firebase-admin";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
-app.use(express.static(__dirname));
 
-// 🔥 CONFIGURACIÓN DE CLOUDFLARE R2
-const s3Client = new S3Client({
+// 🔐 ENV (CONFIGURA ESTO EN RENDER)
+const R2_ENDPOINT = process.env.R2_ENDPOINT;
+const R2_ACCESS_KEY = process.env.R2_ACCESS_KEY;
+const R2_SECRET_KEY = process.env.R2_SECRET_KEY;
+const R2_BUCKET = process.env.R2_BUCKET || "videos-vip";
+const SECRET = process.env.SECRET || "ultra-secret-key";
+
+// 🔥 R2 CLIENT
+const s3 = new S3Client({
   region: "auto",
-  endpoint: process.env.R2_ENDPOINT, // Ejemplo: https://<accountid>.r2.cloudflarestorage.com
+  endpoint: R2_ENDPOINT,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
-
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL; // Ejemplo: https://pub-xxx.r2.dev o tu dominio
-
-// 🔥 CONFIGURAR MULTER PARA MEMORIA (Para subir directo a R2)
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 500 * 1024 * 1024 } // 500MB
-});
-
-// 🔥 FIREBASE ADMIN INITIALIZATION
-let serviceAccount = null;
-const serviceAccountPath = path.join(__dirname, "serviceAccountKey.json");
-
-if (fs.existsSync(serviceAccountPath)) {
-  serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
-} else if (process.env.FIREBASE_CONFIG_JSON) {
-  try {
-    serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG_JSON);
-  } catch (error) {
-    console.error("❌ Error al parsear FIREBASE_CONFIG_JSON");
+    accessKeyId: R2_ACCESS_KEY,
+    secretAccessKey: R2_SECRET_KEY
   }
-}
+});
 
-if (!serviceAccount) {
-  console.error("❌ Error: No se encontró configuración de Firebase");
-  process.exit(1);
-}
+// 🔥 MULTER
+const upload = multer({ dest: "tmp/" });
 
-try {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  });
-  console.log("✅ Firebase Admin inicializado");
-} catch (error) {
-  console.error("❌ Error al inicializar Firebase:", error.message);
-  process.exit(1);
-}
-
+// 🔥 FIREBASE
+const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG_JSON);
+admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 
-// 🔥 ENDPOINT PARA SUBIR A CLOUDFLARE R2
+// 🔐 TOKEN
+function generateToken(userId, key) {
+  return crypto.createHmac("sha256", SECRET)
+    .update(userId + key)
+    .digest("hex");
+}
+
+// 🚀 SUBIR A R2
 app.post("/upload-r2", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ ok: false, error: "No se envió archivo" });
-    }
+    const file = req.file;
+    const key = Date.now() + "-" + file.originalname;
 
-    const fileName = `${Date.now()}-${req.file.originalname}`;
-    const key = `uploads/${req.body.userId || 'anonymous'}/${fileName}`;
+    const fileStream = fs.createReadStream(file.path);
 
-    // Subir a R2
-    const uploadParams = {
-      Bucket: R2_BUCKET_NAME,
+    await s3.send(new PutObjectCommand({
+      Bucket: R2_BUCKET,
       Key: key,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
-    };
+      Body: fileStream,
+      ContentType: file.mimetype
+    }));
 
-    await s3Client.send(new PutObjectCommand(uploadParams));
-    
-    const fileUrl = `${R2_PUBLIC_URL}/${key}`;
+    fs.unlinkSync(file.path);
 
-    // Guardar referencia en Firebase Firestore
     await db.collection("media").add({
-      url: fileUrl,
-      type: req.file.mimetype,
-      vip: true,
-      uploadedBy: req.body.userId || "unknown",
-      uploadedAt: new Date().toISOString(),
-      title: req.body.title || req.file.originalname,
-      storageType: "cloudflare-r2",
-      fileSize: req.file.size
+      key,
+      type: file.mimetype,
+      vip: req.body.vip === "true",
+      ownerId: req.body.userId,
+      createdAt: new Date().toISOString()
     });
 
-    res.json({
-      ok: true,
-      message: "Archivo subido a R2 y registrado en Firebase",
-      url: fileUrl
-    });
-  } catch (error) {
-    console.error("Error en /upload-r2:", error);
-    res.status(500).json({ ok: false, error: error.message });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// Mantener los otros endpoints de Firebase...
-app.get("/api/config", (req, res) => {
-  res.json({
-    ok: true,
-    config: {
-      paypalClientId: process.env.PAYPAL_CLIENT_ID || "AVxAbIDajf-qYOp-mGm6RSGrkqfB6HHk61_QsjUs3S7aBtAYjByJX1SXCbkwKzChYHGgkyuTSU7KznGJ",
-      paypalMode: process.env.PAYPAL_MODE || "sandbox",
-      vipPrice: process.env.VIP_PRICE || "9.99",
-      vipDurationDays: process.env.VIP_DURATION_DAYS || "30"
+// 🔐 OBTENER VIDEO SEGURO
+app.get("/secure-media", async (req, res) => {
+  try {
+    const { key, token, userId } = req.query;
+
+    const valid = generateToken(userId, key);
+
+    if (token !== valid) {
+      return res.status(403).json({ ok: false });
     }
+
+    const command = new GetObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: key
+    });
+
+    const url = await getSignedUrl(s3, command, { expiresIn: 60 });
+
+    res.json({ ok: true, url });
+  } catch (err) {
+    res.status(500).json({ ok: false });
+  }
+});
+
+// 🔐 GENERAR TOKEN
+app.get("/generate-token", (req, res) => {
+  const { userId, key } = req.query;
+  const token = generateToken(userId, key);
+  res.json({ token });
+});
+
+// 💰 ACTIVAR VIP (SIMPLIFICADO)
+app.post("/activate-vip", async (req, res) => {
+  const { email } = req.body;
+
+  const snap = await db.collection("users").where("email", "==", email).get();
+
+  snap.forEach(doc => {
+    doc.ref.update({
+      vip: true,
+      vip_expire: Date.now() + (30 * 24 * 60 * 60 * 1000)
+    });
+  });
+
+  res.json({ ok: true });
+});
+
+// 💸 REFERIDOS
+app.post("/referral", async (req, res) => {
+  const { referrer, user } = req.body;
+
+  await db.collection("referrals").add({
+    referrer,
+    user,
+    commission: 0,
+    createdAt: new Date().toISOString()
+  });
+
+  res.json({ ok: true });
+});
+
+// 📊 ADMIN
+app.get("/admin", async (req, res) => {
+  const users = await db.collection("users").get();
+  const media = await db.collection("media").get();
+
+  res.json({
+    users: users.size,
+    media: media.size
   });
 });
 
-app.get("/api/media", async (req, res) => {
-  try {
-    const snap = await db.collection("media").get();
-    const media = [];
-    snap.forEach(doc => media.push({ id: doc.id, ...doc.data() }));
-    res.json({ ok: true, media: media });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-app.post("/verify-paypal", async (req, res) => {
-  try {
-    const { email, orderId } = req.body;
-    const snap = await db.collection("users").where("email", "==", email).get();
-    if (snap.empty) return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
-    const batch = db.batch();
-    snap.forEach((doc) => {
-      batch.update(doc.ref, {
-        vip: true,
-        vip_expire: Date.now() + (30 * 24 * 60 * 60 * 1000),
-        lastPaymentDate: new Date().toISOString(),
-        lastOrderId: orderId || null
-      });
-    });
-    await batch.commit();
-    res.json({ ok: true, message: "VIP activado" });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-app.post("/check-vip", async (req, res) => {
-  try {
-    const { email } = req.body;
-    const snap = await db.collection("users").where("email", "==", email).get();
-    if (snap.empty) return res.json({ ok: true, vip: false });
-    let isVIP = false;
-    snap.forEach((doc) => {
-      const data = doc.data();
-      if (data.vip && data.vip_expire && Date.now() < data.vip_expire) isVIP = true;
-      else if (data.vip && !data.vip_expire) isVIP = true;
-    });
-    res.json({ ok: true, vip: isVIP });
-  } catch (error) {
-    res.status(500).json({ ok: false, vip: false });
-  }
-});
-
-app.get("/admin-users", async (req, res) => {
-  try {
-    const users = [];
-    const snap = await db.collection("users").get();
-    snap.forEach((doc) => users.push({ uid: doc.id, ...doc.data() }));
-    res.json({ ok: true, users: users });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-app.get("/health", (req, res) => res.json({ ok: true }));
-
+// 🔥 START
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Servidor en puerto ${PORT}`);
+  console.log("🚀 MODO IMPERIO ACTIVO en puerto", PORT);
 });
