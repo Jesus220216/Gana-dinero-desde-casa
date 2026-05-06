@@ -5,7 +5,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -35,7 +35,7 @@ app.get("/home.html", (req, res) => {
 // 🔥 CONFIGURACIÓN DE CLOUDFLARE R2
 const s3Client = new S3Client({
   region: "auto",
-  endpoint: process.env.R2_ENDPOINT, // Ejemplo: https://<accountid>.r2.cloudflarestorage.com
+  endpoint: process.env.R2_ENDPOINT,
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
@@ -43,9 +43,9 @@ const s3Client = new S3Client({
 });
 
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME;
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL; // Ejemplo: https://pub-xxx.r2.dev o tu dominio
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
-// 🔥 CONFIGURAR MULTER PARA MEMORIA (Para subir directo a R2)
+// 🔥 CONFIGURAR MULTER PARA MEMORIA
 const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
@@ -83,6 +83,34 @@ try {
 
 const db = admin.firestore();
 
+// CONFIGURACIÓN DE COMISIÓN
+const OWNER_COMMISSION_PERCENTAGE = parseFloat(process.env.OWNER_COMMISSION || "20"); // 20% por defecto
+const CREATOR_PERCENTAGE = 100 - OWNER_COMMISSION_PERCENTAGE;
+
+// 📱 GET /api/media-user - Obtener contenido del usuario autenticado
+app.get("/api/media-user", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ ok: false, error: "userId requerido" });
+    }
+    const snap = await db.collection("media").where("uploadedBy", "==", userId).get();
+    const media = [];
+    snap.forEach(doc => {
+      const data = doc.data();
+      media.push({
+        id: doc.id,
+        ...data,
+        views: data.views || 0,
+        comments: data.commentsCount || 0
+      });
+    });
+    res.json({ ok: true, media });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // 📱 GET /api/media-public - Obtener contenido público
 app.get("/api/media-public", async (req, res) => {
   try {
@@ -103,6 +131,99 @@ app.get("/api/media-public", async (req, res) => {
   }
 });
 
+// 📱 GET /api/channel/:creatorId - Obtener contenido de un canal específico
+app.get("/api/channel/:creatorId", async (req, res) => {
+  try {
+    const { creatorId } = req.params;
+    const { userId } = req.query; // Usuario que está viendo
+
+    const snap = await db.collection("media").where("uploadedBy", "==", creatorId).get();
+    const media = [];
+
+    snap.forEach(doc => {
+      const data = doc.data();
+      
+      // Si es contenido público, mostrar a todos
+      if (data.isPublic) {
+        media.push({
+          id: doc.id,
+          ...data,
+          views: data.views || 0,
+          comments: data.commentsCount || 0,
+          locked: false
+        });
+      } else {
+        // Si es privado, solo mostrar si el usuario es suscriptor o es el propietario
+        if (userId === creatorId) {
+          media.push({
+            id: doc.id,
+            ...data,
+            views: data.views || 0,
+            comments: data.commentsCount || 0,
+            locked: false
+          });
+        } else {
+          // Mostrar como bloqueado
+          media.push({
+            id: doc.id,
+            title: data.title,
+            description: "Contenido exclusivo para suscriptores",
+            locked: true
+          });
+        }
+      }
+    });
+
+    res.json({ ok: true, media });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 🗑️ DELETE /api/media/:mediaId - Eliminar contenido del usuario
+app.delete("/api/media/:mediaId", async (req, res) => {
+  try {
+    const { mediaId } = req.params;
+    const { userId } = req.body;
+
+    if (!mediaId || !userId) {
+      return res.status(400).json({ ok: false, error: "mediaId y userId requeridos" });
+    }
+
+    const mediaRef = db.collection("media").doc(mediaId);
+    const mediaDoc = await mediaRef.get();
+
+    if (!mediaDoc.exists) {
+      return res.status(404).json({ ok: false, error: "Media no encontrada" });
+    }
+
+    const mediaData = mediaDoc.data();
+    if (mediaData.uploadedBy !== userId) {
+      return res.status(403).json({ ok: false, error: "No tienes permiso para eliminar este contenido" });
+    }
+
+    const url = mediaData.url;
+    const urlParts = url.split("/");
+    const key = urlParts.slice(3).join("/");
+
+    try {
+      const deleteParams = {
+        Bucket: R2_BUCKET_NAME,
+        Key: key
+      };
+      await s3Client.send(new DeleteObjectCommand(deleteParams));
+    } catch (s3Error) {
+      console.warn("Advertencia: Error al eliminar de R2:", s3Error.message);
+    }
+
+    await mediaRef.delete();
+    res.json({ ok: true, message: "Contenido eliminado correctamente" });
+  } catch (error) {
+    console.error("Error en /api/media/:mediaId DELETE:", error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // 🔥 ENDPOINT PARA SUBIR A CLOUDFLARE R2
 app.post("/upload-r2", upload.single("file"), async (req, res) => {
   try {
@@ -113,7 +234,6 @@ app.post("/upload-r2", upload.single("file"), async (req, res) => {
     const fileName = `${Date.now()}-${req.file.originalname}`;
     const key = `uploads/${req.body.userId || 'anonymous'}/${fileName}`;
 
-    // Subir a R2
     const uploadParams = {
       Bucket: R2_BUCKET_NAME,
       Key: key,
@@ -125,7 +245,6 @@ app.post("/upload-r2", upload.single("file"), async (req, res) => {
     
     const fileUrl = `${R2_PUBLIC_URL}/${key}`;
 
-    // Guardar referencia en Firebase Firestore
     const mediaRef = await db.collection("media").add({
       url: fileUrl,
       type: req.file.mimetype,
@@ -193,10 +312,8 @@ app.post("/api/add-comment", async (req, res) => {
       likes: 0
     };
 
-    // Añadir comentario a la subcolección
     await db.collection("media").doc(mediaId).collection("comments").add(comment);
 
-    // Incrementar contador de comentarios
     const mediaRef = db.collection("media").doc(mediaId);
     const mediaDoc = await mediaRef.get();
     const currentComments = mediaDoc.data().commentsCount || 0;
@@ -225,6 +342,179 @@ app.get("/api/comments/:mediaId", async (req, res) => {
   }
 });
 
+// 💳 POST /api/subscribe-channel - Suscribirse a un canal
+app.post("/api/subscribe-channel", async (req, res) => {
+  try {
+    const { subscriberId, creatorId, orderId } = req.body;
+
+    if (!subscriberId || !creatorId || !orderId) {
+      return res.status(400).json({ ok: false, error: "Campos requeridos faltantes" });
+    }
+
+    // Verificar que no esté ya suscrito
+    const existingSnap = await db.collection("subscriptions")
+      .where("subscriberId", "==", subscriberId)
+      .where("creatorId", "==", creatorId)
+      .get();
+
+    if (!existingSnap.empty) {
+      return res.status(400).json({ ok: false, error: "Ya estás suscrito a este canal" });
+    }
+
+    // Crear suscripción
+    const subscriptionRef = await db.collection("subscriptions").add({
+      subscriberId,
+      creatorId,
+      orderId,
+      subscribedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días
+      active: true
+    });
+
+    // Calcular comisiones
+    const vipPrice = parseFloat(process.env.VIP_PRICE || "9.99");
+    const ownerEarnings = (vipPrice * OWNER_COMMISSION_PERCENTAGE) / 100;
+    const creatorEarnings = (vipPrice * CREATOR_PERCENTAGE) / 100;
+
+    // Registrar transacción
+    await db.collection("transactions").add({
+      subscriberId,
+      creatorId,
+      amount: vipPrice,
+      ownerEarnings,
+      creatorEarnings,
+      orderId,
+      status: "completed",
+      createdAt: new Date().toISOString()
+    });
+
+    // Actualizar balance del creador
+    const creatorRef = db.collection("users").doc(creatorId);
+    const creatorDoc = await creatorRef.get();
+    const currentBalance = (creatorDoc.data()?.balance || 0) + creatorEarnings;
+    await creatorRef.update({ balance: currentBalance });
+
+    // Actualizar balance del dueño
+    const ownerRef = db.collection("users").doc("owner"); // ID del dueño
+    const ownerDoc = await ownerRef.get();
+    if (ownerDoc.exists) {
+      const ownerBalance = (ownerDoc.data()?.balance || 0) + ownerEarnings;
+      await ownerRef.update({ balance: ownerBalance });
+    } else {
+      await ownerRef.set({ balance: ownerEarnings, role: "owner" });
+    }
+
+    res.json({ ok: true, message: "Suscripción creada", subscriptionId: subscriptionRef.id });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 📊 GET /api/user-stats/:userId - Obtener estadísticas del usuario
+app.get("/api/user-stats/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Obtener datos del usuario
+    const userDoc = await db.collection("users").doc(userId).get();
+    const userData = userDoc.data() || {};
+
+    // Obtener número de suscriptores
+    const subscribersSnap = await db.collection("subscriptions")
+      .where("creatorId", "==", userId)
+      .where("active", "==", true)
+      .get();
+    const subscriberCount = subscribersSnap.size;
+
+    // Obtener transacciones del usuario
+    const transactionsSnap = await db.collection("transactions")
+      .where("creatorId", "==", userId)
+      .get();
+    const totalEarnings = transactionsSnap.docs.reduce((sum, doc) => sum + (doc.data().creatorEarnings || 0), 0);
+
+    // Obtener contenido del usuario
+    const mediaSnap = await db.collection("media").where("uploadedBy", "==", userId).get();
+    const totalViews = mediaSnap.docs.reduce((sum, doc) => sum + (doc.data().views || 0), 0);
+
+    res.json({
+      ok: true,
+      stats: {
+        balance: userData.balance || 0,
+        subscribers: subscriberCount,
+        totalEarnings,
+        totalViews,
+        contentCount: mediaSnap.size
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 📊 GET /api/owner-stats - Obtener estadísticas del dueño
+app.get("/api/owner-stats", async (req, res) => {
+  try {
+    const ownerDoc = await db.collection("users").doc("owner").get();
+    const ownerData = ownerDoc.data() || {};
+
+    // Total de transacciones
+    const transactionsSnap = await db.collection("transactions").get();
+    const totalRevenue = transactionsSnap.docs.reduce((sum, doc) => sum + (doc.data().ownerEarnings || 0), 0);
+
+    // Total de usuarios
+    const usersSnap = await db.collection("users").get();
+    const totalUsers = usersSnap.size;
+
+    // Total de suscripciones activas
+    const subscriptionsSnap = await db.collection("subscriptions").where("active", "==", true).get();
+    const activeSubscriptions = subscriptionsSnap.size;
+
+    res.json({
+      ok: true,
+      stats: {
+        balance: ownerData.balance || 0,
+        totalRevenue,
+        totalUsers,
+        activeSubscriptions,
+        commissionPercentage: OWNER_COMMISSION_PERCENTAGE
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 🔐 POST /api/verify-paypal-production - Verificar pago PayPal en producción
+app.post("/api/verify-paypal-production", async (req, res) => {
+  try {
+    const { orderId, email } = req.body;
+
+    if (!orderId || !email) {
+      return res.status(400).json({ ok: false, error: "orderId y email requeridos" });
+    }
+
+    const snap = await db.collection("users").where("email", "==", email).get();
+    if (snap.empty) {
+      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
+    }
+
+    const batch = db.batch();
+    snap.forEach((doc) => {
+      batch.update(doc.ref, {
+        vip: true,
+        vip_expire: Date.now() + (parseInt(process.env.VIP_DURATION_DAYS || 30) * 24 * 60 * 60 * 1000),
+        lastPaymentDate: new Date().toISOString(),
+        lastOrderId: orderId
+      });
+    });
+    await batch.commit();
+
+    res.json({ ok: true, message: "VIP activado correctamente", vip: true });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // Mantener los otros endpoints de Firebase...
 app.get("/api/config", (req, res) => {
   res.json({
@@ -233,7 +523,8 @@ app.get("/api/config", (req, res) => {
       paypalClientId: process.env.PAYPAL_CLIENT_ID || "AVxAbIDajf-qYOp-mGm6RSGrkqfB6HHk61_QsjUs3S7aBtAYjByJX1SXCbkwKzChYHGgkyuTSU7KznGJ",
       paypalMode: process.env.PAYPAL_MODE || "sandbox",
       vipPrice: process.env.VIP_PRICE || "9.99",
-      vipDurationDays: process.env.VIP_DURATION_DAYS || "30"
+      vipDurationDays: process.env.VIP_DURATION_DAYS || "30",
+      ownerCommission: OWNER_COMMISSION_PERCENTAGE
     }
   });
 });
