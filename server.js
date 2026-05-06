@@ -84,8 +84,117 @@ try {
 const db = admin.firestore();
 
 // CONFIGURACIÓN DE COMISIÓN
-const OWNER_COMMISSION_PERCENTAGE = parseFloat(process.env.OWNER_COMMISSION || "20"); // 20% por defecto
+const OWNER_COMMISSION_PERCENTAGE = parseFloat(process.env.OWNER_COMMISSION || "20");
 const CREATOR_PERCENTAGE = 100 - OWNER_COMMISSION_PERCENTAGE;
+
+// 🔐 VALIDAR PAGO CON PAYPAL
+async function validatePayPalOrder(orderId) {
+  try {
+    const clientId = process.env.PAYPAL_CLIENT_ID;
+    const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+    const mode = process.env.PAYPAL_MODE || "sandbox";
+    
+    const baseUrl = mode === "live" 
+      ? "https://api.paypal.com" 
+      : "https://api.sandbox.paypal.com";
+
+    const authResponse = await fetch(`${baseUrl}/v1/oauth2/token`, {
+      method: "POST",
+      headers: {
+        "Authorization": "Basic " + Buffer.from(`${clientId}:${clientSecret}`).toString("base64"),
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: "grant_type=client_credentials"
+    });
+
+    const authData = await authResponse.json();
+    if (!authData.access_token) {
+      throw new Error("No se pudo obtener token de PayPal");
+    }
+
+    const orderResponse = await fetch(`${baseUrl}/v2/checkout/orders/${orderId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${authData.access_token}`
+      }
+    });
+
+    const orderData = await orderResponse.json();
+    
+    if (orderData.status === "COMPLETED" && orderData.payer) {
+      return {
+        valid: true,
+        amount: parseFloat(orderData.purchase_units[0].amount.value),
+        payerEmail: orderData.payer.email_address
+      };
+    }
+
+    return { valid: false };
+  } catch (error) {
+    console.error("Error validando PayPal:", error);
+    return { valid: false };
+  }
+}
+
+// 🔐 VALIDAR PAGO CON STRIPE
+async function validateStripePayment(paymentIntentId) {
+  try {
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) return { valid: false };
+
+    const response = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${stripeKey}`
+      }
+    });
+
+    const data = await response.json();
+    
+    if (data.status === "succeeded") {
+      return {
+        valid: true,
+        amount: data.amount / 100,
+        payerEmail: data.receipt_email
+      };
+    }
+
+    return { valid: false };
+  } catch (error) {
+    console.error("Error validando Stripe:", error);
+    return { valid: false };
+  }
+}
+
+// 🔐 VALIDAR PAGO CON MERCADO PAGO
+async function validateMercadoPagoPayment(paymentId) {
+  try {
+    const mpToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+    if (!mpToken) return { valid: false };
+
+    const response = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${mpToken}`
+      }
+    });
+
+    const data = await response.json();
+    
+    if (data.status === "approved") {
+      return {
+        valid: true,
+        amount: data.transaction_amount,
+        payerEmail: data.payer.email
+      };
+    }
+
+    return { valid: false };
+  } catch (error) {
+    console.error("Error validando Mercado Pago:", error);
+    return { valid: false };
+  }
+}
 
 // 📱 GET /api/media-user - Obtener contenido del usuario autenticado
 app.get("/api/media-user", async (req, res) => {
@@ -135,7 +244,17 @@ app.get("/api/media-public", async (req, res) => {
 app.get("/api/channel/:creatorId", async (req, res) => {
   try {
     const { creatorId } = req.params;
-    const { userId } = req.query; // Usuario que está viendo
+    const { userId } = req.query;
+
+    let isSubscribed = false;
+    if (userId && userId !== "anonymous") {
+      const subscriptionSnap = await db.collection("subscriptions")
+        .where("subscriberId", "==", userId)
+        .where("creatorId", "==", creatorId)
+        .where("active", "==", true)
+        .get();
+      isSubscribed = !subscriptionSnap.empty;
+    }
 
     const snap = await db.collection("media").where("uploadedBy", "==", creatorId).get();
     const media = [];
@@ -143,7 +262,6 @@ app.get("/api/channel/:creatorId", async (req, res) => {
     snap.forEach(doc => {
       const data = doc.data();
       
-      // Si es contenido público, mostrar a todos
       if (data.isPublic) {
         media.push({
           id: doc.id,
@@ -153,7 +271,6 @@ app.get("/api/channel/:creatorId", async (req, res) => {
           locked: false
         });
       } else {
-        // Si es privado, solo mostrar si el usuario es suscriptor o es el propietario
         if (userId === creatorId) {
           media.push({
             id: doc.id,
@@ -162,8 +279,15 @@ app.get("/api/channel/:creatorId", async (req, res) => {
             comments: data.commentsCount || 0,
             locked: false
           });
+        } else if (isSubscribed) {
+          media.push({
+            id: doc.id,
+            ...data,
+            views: data.views || 0,
+            comments: data.commentsCount || 0,
+            locked: false
+          });
         } else {
-          // Mostrar como bloqueado
           media.push({
             id: doc.id,
             title: data.title,
@@ -342,41 +466,59 @@ app.get("/api/comments/:mediaId", async (req, res) => {
   }
 });
 
-// 💳 POST /api/subscribe-channel - Suscribirse a un canal
+// 💳 POST /api/subscribe-channel - Suscribirse a un canal (CON VALIDACIÓN DE PAGO REAL)
 app.post("/api/subscribe-channel", async (req, res) => {
   try {
-    const { subscriberId, creatorId, orderId } = req.body;
+    const { subscriberId, creatorId, orderId, paymentMethod } = req.body;
 
     if (!subscriberId || !creatorId || !orderId) {
       return res.status(400).json({ ok: false, error: "Campos requeridos faltantes" });
     }
 
-    // Verificar que no esté ya suscrito
+    let paymentValid = false;
+    let paymentAmount = parseFloat(process.env.VIP_PRICE || "9.99");
+
+    if (paymentMethod === "paypal") {
+      const validation = await validatePayPalOrder(orderId);
+      paymentValid = validation.valid && validation.amount >= paymentAmount;
+    } else if (paymentMethod === "stripe") {
+      const validation = await validateStripePayment(orderId);
+      paymentValid = validation.valid && validation.amount >= (paymentAmount * 100);
+    } else if (paymentMethod === "mercadopago") {
+      const validation = await validateMercadoPagoPayment(orderId);
+      paymentValid = validation.valid && validation.amount >= paymentAmount;
+    }
+
+    if (!paymentValid) {
+      return res.status(400).json({ ok: false, error: "Pago no válido o no completado" });
+    }
+
     const existingSnap = await db.collection("subscriptions")
       .where("subscriberId", "==", subscriberId)
       .where("creatorId", "==", creatorId)
       .get();
 
     if (!existingSnap.empty) {
-      return res.status(400).json({ ok: false, error: "Ya estás suscrito a este canal" });
+      const existingSub = existingSnap.docs[0].data();
+      if (existingSub.active && new Date(existingSub.expiresAt) > new Date()) {
+        return res.status(400).json({ ok: false, error: "Ya estás suscrito a este canal" });
+      }
     }
 
-    // Crear suscripción
     const subscriptionRef = await db.collection("subscriptions").add({
       subscriberId,
       creatorId,
       orderId,
+      paymentMethod,
       subscribedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 días
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       active: true
     });
 
-    // Calcular comisiones
     const vipPrice = parseFloat(process.env.VIP_PRICE || "9.99");
     const ownerEarnings = (vipPrice * OWNER_COMMISSION_PERCENTAGE) / 100;
     const creatorEarnings = (vipPrice * CREATOR_PERCENTAGE) / 100;
 
-    // Registrar transacción
     await db.collection("transactions").add({
       subscriberId,
       creatorId,
@@ -384,18 +526,17 @@ app.post("/api/subscribe-channel", async (req, res) => {
       ownerEarnings,
       creatorEarnings,
       orderId,
+      paymentMethod,
       status: "completed",
       createdAt: new Date().toISOString()
     });
 
-    // Actualizar balance del creador
     const creatorRef = db.collection("users").doc(creatorId);
     const creatorDoc = await creatorRef.get();
     const currentBalance = (creatorDoc.data()?.balance || 0) + creatorEarnings;
     await creatorRef.update({ balance: currentBalance });
 
-    // Actualizar balance del dueño
-    const ownerRef = db.collection("users").doc("owner"); // ID del dueño
+    const ownerRef = db.collection("users").doc("owner");
     const ownerDoc = await ownerRef.get();
     if (ownerDoc.exists) {
       const ownerBalance = (ownerDoc.data()?.balance || 0) + ownerEarnings;
@@ -404,7 +545,12 @@ app.post("/api/subscribe-channel", async (req, res) => {
       await ownerRef.set({ balance: ownerEarnings, role: "owner" });
     }
 
-    res.json({ ok: true, message: "Suscripción creada", subscriptionId: subscriptionRef.id });
+    res.json({ 
+      ok: true, 
+      message: "Suscripción creada exitosamente", 
+      subscriptionId: subscriptionRef.id,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }
@@ -415,24 +561,20 @@ app.get("/api/user-stats/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Obtener datos del usuario
     const userDoc = await db.collection("users").doc(userId).get();
     const userData = userDoc.data() || {};
 
-    // Obtener número de suscriptores
     const subscribersSnap = await db.collection("subscriptions")
       .where("creatorId", "==", userId)
       .where("active", "==", true)
       .get();
     const subscriberCount = subscribersSnap.size;
 
-    // Obtener transacciones del usuario
     const transactionsSnap = await db.collection("transactions")
       .where("creatorId", "==", userId)
       .get();
     const totalEarnings = transactionsSnap.docs.reduce((sum, doc) => sum + (doc.data().creatorEarnings || 0), 0);
 
-    // Obtener contenido del usuario
     const mediaSnap = await db.collection("media").where("uploadedBy", "==", userId).get();
     const totalViews = mediaSnap.docs.reduce((sum, doc) => sum + (doc.data().views || 0), 0);
 
@@ -457,15 +599,12 @@ app.get("/api/owner-stats", async (req, res) => {
     const ownerDoc = await db.collection("users").doc("owner").get();
     const ownerData = ownerDoc.data() || {};
 
-    // Total de transacciones
     const transactionsSnap = await db.collection("transactions").get();
     const totalRevenue = transactionsSnap.docs.reduce((sum, doc) => sum + (doc.data().ownerEarnings || 0), 0);
 
-    // Total de usuarios
     const usersSnap = await db.collection("users").get();
     const totalUsers = usersSnap.size;
 
-    // Total de suscripciones activas
     const subscriptionsSnap = await db.collection("subscriptions").where("active", "==", true).get();
     const activeSubscriptions = subscriptionsSnap.size;
 
@@ -484,44 +623,42 @@ app.get("/api/owner-stats", async (req, res) => {
   }
 });
 
-// 🔐 POST /api/verify-paypal-production - Verificar pago PayPal en producción
-app.post("/api/verify-paypal-production", async (req, res) => {
+// 🔐 GET /api/check-subscription - Verificar si el usuario está suscrito a un canal
+app.get("/api/check-subscription/:userId/:creatorId", async (req, res) => {
   try {
-    const { orderId, email } = req.body;
+    const { userId, creatorId } = req.params;
 
-    if (!orderId || !email) {
-      return res.status(400).json({ ok: false, error: "orderId y email requeridos" });
-    }
+    const snap = await db.collection("subscriptions")
+      .where("subscriberId", "==", userId)
+      .where("creatorId", "==", creatorId)
+      .where("active", "==", true)
+      .get();
 
-    const snap = await db.collection("users").where("email", "==", email).get();
     if (snap.empty) {
-      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
+      return res.json({ ok: true, subscribed: false });
     }
 
-    const batch = db.batch();
-    snap.forEach((doc) => {
-      batch.update(doc.ref, {
-        vip: true,
-        vip_expire: Date.now() + (parseInt(process.env.VIP_DURATION_DAYS || 30) * 24 * 60 * 60 * 1000),
-        lastPaymentDate: new Date().toISOString(),
-        lastOrderId: orderId
-      });
-    });
-    await batch.commit();
+    const subscription = snap.docs[0].data();
+    const isExpired = new Date(subscription.expiresAt) < new Date();
 
-    res.json({ ok: true, message: "VIP activado correctamente", vip: true });
+    res.json({ 
+      ok: true, 
+      subscribed: !isExpired,
+      expiresAt: subscription.expiresAt
+    });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }
 });
 
-// Mantener los otros endpoints de Firebase...
 app.get("/api/config", (req, res) => {
   res.json({
     ok: true,
     config: {
       paypalClientId: process.env.PAYPAL_CLIENT_ID || "AVxAbIDajf-qYOp-mGm6RSGrkqfB6HHk61_QsjUs3S7aBtAYjByJX1SXCbkwKzChYHGgkyuTSU7KznGJ",
       paypalMode: process.env.PAYPAL_MODE || "sandbox",
+      stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "",
+      mercadoPagoPublicKey: process.env.MERCADO_PAGO_PUBLIC_KEY || "",
       vipPrice: process.env.VIP_PRICE || "9.99",
       vipDurationDays: process.env.VIP_DURATION_DAYS || "30",
       ownerCommission: OWNER_COMMISSION_PERCENTAGE
