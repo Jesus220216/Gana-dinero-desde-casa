@@ -68,6 +68,26 @@ try {
 
 const db = admin.firestore();
 
+// 📱 GET /api/media-public - Obtener contenido público
+app.get("/api/media-public", async (req, res) => {
+  try {
+    const snap = await db.collection("media").where("isPublic", "==", true).get();
+    const media = [];
+    snap.forEach(doc => {
+      const data = doc.data();
+      media.push({
+        id: doc.id,
+        ...data,
+        views: data.views || 0,
+        comments: data.commentsCount || 0
+      });
+    });
+    res.json({ ok: true, media });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // 🔥 ENDPOINT PARA SUBIR A CLOUDFLARE R2
 app.post("/upload-r2", upload.single("file"), async (req, res) => {
   try {
@@ -91,24 +111,101 @@ app.post("/upload-r2", upload.single("file"), async (req, res) => {
     const fileUrl = `${R2_PUBLIC_URL}/${key}`;
 
     // Guardar referencia en Firebase Firestore
-    await db.collection("media").add({
+    const mediaRef = await db.collection("media").add({
       url: fileUrl,
       type: req.file.mimetype,
-      vip: true,
+      isPublic: req.body.isPublic === "true" ? true : false,
       uploadedBy: req.body.userId || "unknown",
       uploadedAt: new Date().toISOString(),
       title: req.body.title || req.file.originalname,
+      description: req.body.description || "",
       storageType: "cloudflare-r2",
-      fileSize: req.file.size
+      fileSize: req.file.size,
+      views: 0,
+      commentsCount: 0
     });
 
     res.json({
       ok: true,
       message: "Archivo subido a R2 y registrado en Firebase",
-      url: fileUrl
+      url: fileUrl,
+      mediaId: mediaRef.id
     });
   } catch (error) {
     console.error("Error en /upload-r2:", error);
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 👁️ POST /api/increment-views - Incrementar contador de visitas
+app.post("/api/increment-views", async (req, res) => {
+  try {
+    const { mediaId } = req.body;
+    if (!mediaId) {
+      return res.status(400).json({ ok: false, error: "mediaId requerido" });
+    }
+
+    const mediaRef = db.collection("media").doc(mediaId);
+    const doc = await mediaRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ ok: false, error: "Media no encontrada" });
+    }
+
+    const currentViews = doc.data().views || 0;
+    await mediaRef.update({ views: currentViews + 1 });
+
+    res.json({ ok: true, views: currentViews + 1 });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 💬 POST /api/add-comment - Añadir comentario
+app.post("/api/add-comment", async (req, res) => {
+  try {
+    const { mediaId, userId, userName, text } = req.body;
+
+    if (!mediaId || !userId || !text) {
+      return res.status(400).json({ ok: false, error: "Campos requeridos faltantes" });
+    }
+
+    const comment = {
+      userId,
+      userName: userName || "Anónimo",
+      text,
+      createdAt: new Date().toISOString(),
+      likes: 0
+    };
+
+    // Añadir comentario a la subcolección
+    await db.collection("media").doc(mediaId).collection("comments").add(comment);
+
+    // Incrementar contador de comentarios
+    const mediaRef = db.collection("media").doc(mediaId);
+    const mediaDoc = await mediaRef.get();
+    const currentComments = mediaDoc.data().commentsCount || 0;
+    await mediaRef.update({ commentsCount: currentComments + 1 });
+
+    res.json({ ok: true, message: "Comentario añadido", comment });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 💬 GET /api/comments/:mediaId - Obtener comentarios de un contenido
+app.get("/api/comments/:mediaId", async (req, res) => {
+  try {
+    const { mediaId } = req.params;
+    const snap = await db.collection("media").doc(mediaId).collection("comments").orderBy("createdAt", "desc").get();
+    
+    const comments = [];
+    snap.forEach(doc => {
+      comments.push({ id: doc.id, ...doc.data() });
+    });
+
+    res.json({ ok: true, comments });
+  } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }
 });
