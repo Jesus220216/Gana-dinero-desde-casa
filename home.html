@@ -139,6 +139,7 @@
       justify-content: space-between;
       font-size: 12px;
       color: #38bdf8;
+      margin-bottom: 10px;
     }
 
     .stat {
@@ -150,7 +151,6 @@
     .gallery-item-action {
       display: flex;
       gap: 10px;
-      margin-top: 10px;
     }
 
     .btn-small {
@@ -434,8 +434,8 @@
   <div class="header">
     <h1>🎬 Galería Pública</h1>
     <div class="header-actions">
-      <a href="home.html" class="btn btn-secondary">🏠 Inicio</a>
-      <a href="dashboard.html" class="btn btn-primary">🔐 Mi Cuenta / VIP</a>
+      <a href="home_v2.html" class="btn btn-secondary">🏠 Inicio</a>
+      <a href="dashboard_v2.html" class="btn btn-primary">💳 Obtén VIP</a>
     </div>
   </div>
 
@@ -467,7 +467,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, query, where, doc, getDoc, onSnapshot }
+import { getFirestore, collection, getDocs, query, where, doc, getDoc }
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -530,9 +530,9 @@ async function loadPublicGallery() {
       item.className = "gallery-item";
       
       let mediaHTML = '';
-      if (data.type.startsWith("image")) {
+      if (data.type && data.type.startsWith("image")) {
         mediaHTML = `<img src="${data.url}" alt="${data.title}" class="gallery-item-media">`;
-      } else if (data.type.startsWith("video")) {
+      } else if (data.type && data.type.startsWith("video")) {
         mediaHTML = `<video class="gallery-item-media" controls><source src="${data.url}"></video>`;
       }
       
@@ -575,16 +575,20 @@ window.viewDetails = async (mediaId) => {
     const data = docSnap.data();
     
     // Incrementar visitas
-    await fetch("/api/increment-views", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mediaId })
-    });
+    try {
+      await fetch("/api/increment-views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mediaId })
+      });
+    } catch (e) {
+      console.log("No se pudo incrementar visitas");
+    }
     
     let mediaHTML = '';
-    if (data.type.startsWith("image")) {
+    if (data.type && data.type.startsWith("image")) {
       mediaHTML = `<img src="${data.url}" alt="${data.title}" class="modal-media">`;
-    } else if (data.type.startsWith("video")) {
+    } else if (data.type && data.type.startsWith("video")) {
       mediaHTML = `<video class="modal-media" controls><source src="${data.url}"></video>`;
     }
     
@@ -660,13 +664,13 @@ async function loadComments(mediaId) {
       </div>
     `;
     
-    if (result.ok && result.comments.length > 0) {
+    if (result.ok && result.comments && result.comments.length > 0) {
       html += '<div class="comments-list">';
       result.comments.forEach(comment => {
         const date = new Date(comment.createdAt).toLocaleDateString('es-ES');
         html += `
           <div class="comment">
-            <div class="comment-author">${comment.userName}</div>
+            <div class="comment-author">${comment.userName || 'Anónimo'}</div>
             <div class="comment-text">${comment.text}</div>
             <div class="comment-date">${date}</div>
           </div>
