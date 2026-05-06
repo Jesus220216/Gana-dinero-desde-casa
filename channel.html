@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canal - Plataforma de Monetización</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+      color: white;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    /* CHANNEL HEADER */
+    .channel-header {
+      padding: 30px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      border-radius: 12px;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .channel-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 60px;
+    }
+
+    .channel-info h1 {
+      font-size: 28px;
+      margin-bottom: 5px;
+    }
+
+    .channel-info p {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 15px;
+    }
+
+    .channel-stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 15px;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .btn-back {
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .btn-back:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* GALLERY */
+    .gallery-section h2 {
+      margin-bottom: 20px;
+      color: #a855f7;
+      font-size: 24px;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .gallery-item {
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .gallery-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(168, 85, 247, 0.2);
+    }
+
+    .gallery-item img,
+    .gallery-item video {
+      width: 100%;
+      height: 250px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .gallery-item-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 10px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .gallery-item:hover .gallery-item-overlay {
+      opacity: 1;
+    }
+
+    .gallery-item-title {
+      font-weight: bold;
+      color: #a855f7;
+      font-size: 14px;
+    }
+
+    .gallery-item-locked {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px 25px;
+      border-radius: 6px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .empty-gallery {
+      text-align: center;
+      padding: 40px;
+      color: #cbd5e1;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(168, 85, 247, 0.3);
+      border-top-color: #a855f7;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .alert {
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid #ef4444;
+      color: #ef4444;
+    }
+
+    @media (max-width: 768px) {
+      .channel-header {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .gallery {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <button class="btn-back" onclick="history.back()">← Volver</button>
+
+  <!-- CHANNEL HEADER -->
+  <div class="channel-header" id="channelHeader">
+    <div class="channel-avatar" id="avatar"></div>
+    <div class="channel-info">
+      <h1 id="creatorName"></h1>
+      <p id="creatorEmail"></p>
+      <div class="channel-stats">
+        <div class="stat">
+          <div class="stat-value" id="subscriberCount">0</div>
+          <div class="stat-label">Suscriptores</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="contentCount">0</div>
+          <div class="stat-label">Videos</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="totalViews">0</div>
+          <div class="stat-label">Vistas</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ALERT -->
+  <div id="alertContainer"></div>
+
+  <!-- GALLERY SECTION -->
+  <div class="gallery-section">
+    <h2>📺 Contenido</h2>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Cargando contenido...</p>
+    </div>
+    <div class="gallery" id="gallery"></div>
+    <div class="empty-gallery" id="emptyGallery" style="display:none;">
+      <p>Este canal no tiene contenido disponible.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL PARA VER DETALLES -->
+<div class="modal" id="detailModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000; justify-content: center; align-items: center;">
+  <div class="modal-content" style="background: rgba(15, 23, 42, 0.95); border-radius: 12px; border: 1px solid rgba(168, 85, 247, 0.3); max-width: 800px; width: 90%; max-height: 90vh; overflow-y: auto; padding: 20px; position: relative;">
+    <button style="position: absolute; top: 10px; right: 15px; font-size: 28px; font-weight: bold; color: #ef4444; cursor: pointer; background: none; border: none;" onclick="closeModal()">&times;</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, query, where, doc, getDoc }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgJITFOGXw-r5KYzz1zHlNz1jKw-_XMwM",
+  authDomain: "monetizacion-pro.firebaseapp.com",
+  projectId: "monetizacion-pro",
+  storageBucket: "monetizacion-pro.appspot.com",
+  messagingSenderId: "580361577178",
+  appId: "1:580361577178:web:b86b0a8301e94b93997be3"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// DOM Elements
+const gallery = document.getElementById("gallery");
+const loading = document.getElementById("loading");
+const emptyGallery = document.getElementById("emptyGallery");
+const alertContainer = document.getElementById("alertContainer");
+const detailModal = document.getElementById("detailModal");
+
+let currentUser = null;
+let creatorId = null;
+
+// Obtener creatorId de la URL
+const urlParams = new URLSearchParams(window.location.search);
+creatorId = urlParams.get("id");
+
+if (!creatorId) {
+  window.location.href = "channels.html";
+}
+
+// Mostrar alerta
+function showAlert(message, type = "info") {
+  const alert = document.createElement("div");
+  alert.className = `alert ${type} show`;
+  alert.textContent = message;
+  alertContainer.appendChild(alert);
+  
+  setTimeout(() => {
+    alert.remove();
+  }, 4000);
+}
+
+// Cargar información del canal
+async function loadChannelInfo() {
+  try {
+    const creatorDoc = await getDoc(doc(db, "users", creatorId));
+    if (!creatorDoc.exists()) {
+      showAlert("Canal no encontrado", "error");
+      return;
+    }
+
+    const creatorData = creatorDoc.data();
+    const statsResponse = await fetch(`/api/user-stats/${creatorId}`);
+    const statsData = await statsResponse.json();
+
+    if (statsData.ok) {
+      const initials = creatorData.email.substring(0, 2).toUpperCase();
+      document.getElementById("avatar").textContent = initials;
+      document.getElementById("creatorName").textContent = creatorData.email.split("@")[0];
+      document.getElementById("creatorEmail").textContent = creatorData.email;
+      document.getElementById("subscriberCount").textContent = statsData.stats.subscribers;
+      document.getElementById("contentCount").textContent = statsData.stats.contentCount;
+      document.getElementById("totalViews").textContent = statsData.stats.totalViews;
+    }
+  } catch (error) {
+    console.error(error);
+    showAlert("Error al cargar información del canal", "error");
+  }
+}
+
+// Cargar contenido del canal
+async function loadChannelContent() {
+  loading.style.display = "block";
+  gallery.innerHTML = "";
+  
+  try {
+    const response = await fetch(`/api/channel/${creatorId}?userId=${currentUser?.uid || 'anonymous'}`);
+    const data = await response.json();
+
+    if (!data.ok || data.media.length === 0) {
+      emptyGallery.style.display = "block";
+    } else {
+      emptyGallery.style.display = "none";
+      data.media.forEach(media => {
+        const item = document.createElement("div");
+        item.className = "gallery-item";
+        
+        if (media.locked) {
+          item.innerHTML = `
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23333' width='100' height='100'/%3E%3C/svg%3E" alt="Bloqueado">
+            <div class="gallery-item-locked">🔒 Contenido Exclusivo<br>Suscríbete para ver</div>
+          `;
+        } else {
+          if (media.type.startsWith("image")) {
+            item.innerHTML = `<img src="${media.url}" alt="${media.title}">`;
+          } else {
+            item.innerHTML = `<video src="${media.url}"></video>`;
+          }
+          
+          const overlay = document.createElement("div");
+          overlay.className = "gallery-item-overlay";
+          overlay.innerHTML = `
+            <div class="gallery-item-title">${media.title}</div>
+            <button style="padding: 8px; background: #22c55e; color: black; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;" onclick="showDetail('${media.id}', ${JSON.stringify(media).replace(/'/g, "&apos;")})">
+              👁️ Ver Detalles
+            </button>
+          `;
+          item.appendChild(overlay);
+        }
+        
+        gallery.appendChild(item);
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    showAlert("Error al cargar contenido: " + error.message, "error");
+  } finally {
+    loading.style.display = "none";
+  }
+}
+
+// Mostrar detalles
+window.showDetail = (mediaId, media) => {
+  const modalBody = document.getElementById("modalBody");
+  const mediaElement = media.type.startsWith("image") 
+    ? `<img src="${media.url}" style="width: 100%; border-radius: 8px; margin-bottom: 20px;">`
+    : `<video src="${media.url}" controls style="width: 100%; border-radius: 8px; margin-bottom: 20px;"></video>`;
+
+  modalBody.innerHTML = `
+    ${mediaElement}
+    <div style="font-size: 20px; font-weight: bold; color: #a855f7; margin-bottom: 10px;">${media.title}</div>
+    <div style="color: #cbd5e1; margin-bottom: 15px; line-height: 1.6;">${media.description}</div>
+    <div style="display: flex; gap: 20px; margin-bottom: 20px; padding: 15px; background: rgba(168, 85, 247, 0.1); border-radius: 8px;">
+      <div style="text-align: center;">
+        <div style="font-size: 20px; font-weight: bold; color: #a855f7;">${media.views || 0}</div>
+        <div style="font-size: 12px; color: #cbd5e1;">Vistas</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="font-size: 20px; font-weight: bold; color: #a855f7;">${media.comments || 0}</div>
+        <div style="font-size: 12px; color: #cbd5e1;">Comentarios</div>
+      </div>
+    </div>
+    <button style="width: 100%; padding: 12px; background: #ef4444; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;" onclick="closeModal()">Cerrar</button>
+  `;
+  detailModal.style.display = "flex";
+};
+
+// Cerrar modal
+window.closeModal = () => {
+  detailModal.style.display = "none";
+};
+
+// Auth state change
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+  }
+  loadChannelInfo();
+  loadChannelContent();
+});
+</script>
+
+</body>
+</html>
