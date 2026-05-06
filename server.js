@@ -17,6 +17,21 @@ const app = express();
 app.use(express.json());
 app.use(express.static(__dirname));
 
+// Redirigir la raíz a home_v2.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "home_v2.html"));
+});
+
+// Redirigir dashboard a dashboard_v2.html
+app.get("/dashboard.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "dashboard_v2.html"));
+});
+
+// Redirigir home a home_v2.html
+app.get("/home.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "home_v2.html"));
+});
+
 // 🔥 CONFIGURACIÓN DE CLOUDFLARE R2
 const s3Client = new S3Client({
   region: "auto",
