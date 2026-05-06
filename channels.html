@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Canales - Plataforma de Monetización</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #020617 0%, #0f172a 100%);
+      color: white;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    /* HEADER */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: 12px;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #a855f7;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(168, 85, 247, 0.4);
+    }
+
+    .btn-secondary {
+      background: rgba(168, 85, 247, 0.2);
+      color: #a855f7;
+      border: 1px solid #a855f7;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(168, 85, 247, 0.3);
+    }
+
+    /* CHANNELS GRID */
+    .channels-section h2 {
+      margin-bottom: 20px;
+      color: #a855f7;
+      font-size: 24px;
+    }
+
+    .channels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .channel-card {
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      transition: all 0.3s ease;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .channel-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 30px rgba(168, 85, 247, 0.2);
+    }
+
+    .channel-header {
+      padding: 20px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      text-align: center;
+    }
+
+    .channel-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      margin: 0 auto 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+
+    .channel-name {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .channel-email {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .channel-body {
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .channel-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .stat {
+      text-align: center;
+      padding: 10px;
+      background: rgba(168, 85, 247, 0.1);
+      border-radius: 6px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #a855f7;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #cbd5e1;
+    }
+
+    .channel-description {
+      color: #cbd5e1;
+      font-size: 14px;
+      margin-bottom: 15px;
+      flex: 1;
+    }
+
+    .channel-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-subscribe {
+      flex: 1;
+      padding: 10px;
+      background: #22c55e;
+      color: black;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-subscribe:hover {
+      background: #16a34a;
+    }
+
+    .btn-subscribe.subscribed {
+      background: #38bdf8;
+      color: black;
+    }
+
+    .btn-view {
+      flex: 1;
+      padding: 10px;
+      background: #38bdf8;
+      color: black;
+      border: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-view:hover {
+      background: #0284c7;
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 40px;
+      color: #cbd5e1;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(168, 85, 247, 0.3);
+      border-top-color: #a855f7;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .alert {
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert.success {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid #22c55e;
+      color: #22c55e;
+    }
+
+    .alert.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid #ef4444;
+      color: #ef4444;
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+      }
+
+      .header-actions {
+        width: 100%;
+        flex-direction: column;
+      }
+
+      .channels-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>🎬 Canales</h1>
+    <div class="header-actions">
+      <a href="home_v2.html" class="btn btn-secondary">🏠 Inicio</a>
+      <a href="dashboard_v2.html" class="btn btn-primary">📊 Mi Dashboard</a>
+    </div>
+  </div>
+
+  <!-- ALERT -->
+  <div id="alertContainer"></div>
+
+  <!-- CHANNELS SECTION -->
+  <div class="channels-section">
+    <h2>📺 Creadores Disponibles</h2>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Cargando canales...</p>
+    </div>
+    <div class="channels-grid" id="channelsGrid"></div>
+    <div class="empty-message" id="emptyMessage" style="display:none;">
+      <p>No hay canales disponibles en este momento.</p>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, query, where, doc, getDoc }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgJITFOGXw-r5KYzz1zHlNz1jKw-_XMwM",
+  authDomain: "monetizacion-pro.firebaseapp.com",
+  projectId: "monetizacion-pro",
+  storageBucket: "monetizacion-pro.appspot.com",
+  messagingSenderId: "580361577178",
+  appId: "1:580361577178:web:b86b0a8301e94b93997be3"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// DOM Elements
+const channelsGrid = document.getElementById("channelsGrid");
+const loading = document.getElementById("loading");
+const emptyMessage = document.getElementById("emptyMessage");
+const alertContainer = document.getElementById("alertContainer");
+
+let currentUser = null;
+
+// Mostrar alerta
+function showAlert(message, type = "info") {
+  const alert = document.createElement("div");
+  alert.className = `alert ${type} show`;
+  alert.textContent = message;
+  alertContainer.appendChild(alert);
+  
+  setTimeout(() => {
+    alert.remove();
+  }, 4000);
+}
+
+// Cargar canales
+async function loadChannels() {
+  loading.style.display = "block";
+  channelsGrid.innerHTML = "";
+  
+  try {
+    const usersSnap = await getDocs(collection(db, "users"));
+    const creators = [];
+
+    for (const userDoc of usersSnap.docs) {
+      const userData = userDoc.data();
+      
+      // Saltar al propietario y al usuario actual
+      if (userDoc.id === "owner" || userDoc.id === currentUser?.uid) continue;
+
+      // Obtener estadísticas del creador
+      const statsResponse = await fetch(`/api/user-stats/${userDoc.id}`);
+      const statsData = await statsResponse.json();
+
+      if (statsData.ok) {
+        creators.push({
+          id: userDoc.id,
+          email: userData.email,
+          balance: userData.balance || 0,
+          stats: statsData.stats
+        });
+      }
+    }
+
+    if (creators.length === 0) {
+      emptyMessage.style.display = "block";
+    } else {
+      emptyMessage.style.display = "none";
+      creators.forEach(creator => {
+        const card = document.createElement("div");
+        card.className = "channel-card";
+        
+        const initials = creator.email.substring(0, 2).toUpperCase();
+        const isSubscribed = false; // TODO: Verificar si el usuario está suscrito
+
+        card.innerHTML = `
+          <div class="channel-header">
+            <div class="channel-avatar">${initials}</div>
+            <div class="channel-name">${creator.email.split('@')[0]}</div>
+            <div class="channel-email">${creator.email}</div>
+          </div>
+          <div class="channel-body">
+            <div class="channel-stats">
+              <div class="stat">
+                <div class="stat-value">${creator.stats.subscribers}</div>
+                <div class="stat-label">Suscriptores</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">${creator.stats.contentCount}</div>
+                <div class="stat-label">Videos</div>
+              </div>
+            </div>
+            <div class="channel-description">
+              Creador de contenido exclusivo. Suscríbete para acceder a todo su contenido privado.
+            </div>
+            <div class="channel-actions">
+              <button class="btn-view" onclick="viewChannel('${creator.id}')">👁️ Ver Canal</button>
+              <button class="btn-subscribe ${isSubscribed ? 'subscribed' : ''}" 
+                onclick="subscribeToChannel('${creator.id}')">
+                ${isSubscribed ? '✓ Suscrito' : '+ Suscribirse'}
+              </button>
+            </div>
+          </div>
+        `;
+        
+        channelsGrid.appendChild(card);
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    showAlert("Error al cargar canales: " + error.message, "error");
+  } finally {
+    loading.style.display = "none";
+  }
+}
+
+// Ver canal
+window.viewChannel = (creatorId) => {
+  window.location.href = `channel.html?id=${creatorId}`;
+};
+
+// Suscribirse a un canal
+window.subscribeToChannel = async (creatorId) => {
+  if (!currentUser) {
+    alert("Debes iniciar sesión para suscribirte");
+    window.location.href = "dashboard_v2.html";
+    return;
+  }
+
+  // Generar ID de orden simulado
+  const orderId = "ORDER_" + Date.now();
+
+  try {
+    const response = await fetch("/api/subscribe-channel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        subscriberId: currentUser.uid,
+        creatorId,
+        orderId
+      })
+    });
+
+    const data = await response.json();
+    if (data.ok) {
+      showAlert("¡Suscripción completada! Ahora puedes ver el contenido exclusivo.", "success");
+      loadChannels();
+    } else {
+      showAlert("Error: " + data.error, "error");
+    }
+  } catch (error) {
+    showAlert("Error: " + error.message, "error");
+  }
+};
+
+// Auth state change
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+    loadChannels();
+  } else {
+    // Usuario no autenticado
+    emptyMessage.style.display = "block";
+    emptyMessage.innerHTML = "<p>Debes <a href='dashboard_v2.html' style='color: #a855f7;'>iniciar sesión</a> para ver los canales.</p>";
+  }
+});
+</script>
+
+</body>
+</html>
