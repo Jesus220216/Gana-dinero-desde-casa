@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contenido VIP - Gana Dinero</title>
 
-<!-- PayPal SDK -->
-<script src="https://www.paypal.com/sdk/js?client-id=AVWBdRXW8EqPqVJdGPZIv2UKvJSLvLCVNAVqKPHQtqSHNDrKLfMKDHVQCHVKBfYvPP5mGrXQVRLUVjKV&currency=USD"></script>
-
 <style>
 * {
   margin: 0;
@@ -91,6 +88,11 @@ body {
   border-radius: 12px;
   border: 1px solid rgba(168, 85, 247, 0.3);
   box-shadow: 0 0 30px rgba(168, 85, 247, 0.1);
+  display: none;
+}
+
+.payment-box.show {
+  display: block;
 }
 
 .payment-box h2 {
@@ -469,27 +471,10 @@ body {
 
 <div class="container">
 
-  <!-- PAYMENT BOX (Paso 1) -->
-  <div id="paymentBox" class="payment-box">
-    <h2>💳 Obtén Acceso VIP</h2>
-    <p>Acceso completo a contenido exclusivo, subida ilimitada de videos y monetización.</p>
-    
-    <div class="benefits">
-      <div class="benefit">✅ Subir videos ilimitados</div>
-      <div class="benefit">✅ Acceso a contenido premium</div>
-      <div class="benefit">✅ Monetización completa</div>
-      <div class="benefit">✅ Soporte prioritario</div>
-    </div>
-    
-    <div class="price-display">💰 $9.99 USD / Mes</div>
-    
-    <div id="paypal-button-container"></div>
-  </div>
-
-  <!-- AUTH BOX (Paso 2 - Después del pago) -->
-  <div id="authBox" class="auth-box">
-    <h2>🔒 Crear Cuenta VIP</h2>
-    <p style="text-align: center; color: #22c55e; margin-bottom: 20px;">✅ Pago confirmado. Ahora crea tu cuenta.</p>
+  <!-- AUTH BOX (Paso 1 - Registro/Login) -->
+  <div id="authBox" class="auth-box show">
+    <h2 id="authTitle">🔒 Acceso a la Plataforma</h2>
+    <p style="text-align: center; color: #cbd5e1; margin-bottom: 20px;">Inicia sesión o regístrate para continuar.</p>
     
     <div class="form-group">
       <label for="email">Correo Electrónico</label>
@@ -498,16 +483,39 @@ body {
     
     <div class="form-group">
       <label for="password">Contraseña</label>
-      <input type="password" id="password" placeholder="Mínimo 6 caracteres">
+      <input type="password" id="password" placeholder="******">
     </div>
     
     <div class="btn-group">
-      <button class="btn btn-primary" onclick="register()">Crear Cuenta</button>
-      <button class="btn btn-secondary" onclick="loginExisting()">Tengo Cuenta</button>
+      <button class="btn btn-primary" onclick="loginExisting()">Iniciar Sesión</button>
+      <button class="btn btn-secondary" onclick="register()">Registrarse</button>
+    </div>
+    <div style="text-align: center; margin-top: 15px;">
+      <a href="home_v2.html" style="color: #a855f7; text-decoration: none; font-size: 14px;">🏠 Volver a la Galería Pública</a>
     </div>
   </div>
 
-  <!-- PANEL (Paso 3 - Después del registro) -->
+  <!-- PAYMENT BOX (Paso 2 - Solo si no es VIP) -->
+  <div id="paymentBox" class="payment-box">
+    <h2>💳 Obtén Acceso VIP</h2>
+    <p>Tu cuenta ha sido creada, pero necesitas activar el acceso VIP para ver y subir contenido exclusivo.</p>
+    
+    <div class="benefits">
+      <div class="benefit">✅ Subir videos ilimitados</div>
+      <div class="benefit">✅ Acceso a contenido premium</div>
+      <div class="benefit">✅ Monetización completa</div>
+      <div class="benefit">✅ Soporte prioritario</div>
+    </div>
+    
+    <div class="price-display" id="priceDisplay">💰 $9.99 USD / Mes</div>
+    
+    <div id="paypal-button-container"></div>
+    <div style="text-align: center; margin-top: 15px;">
+      <button class="btn btn-secondary" onclick="logout()">Cerrar Sesión</button>
+    </div>
+  </div>
+
+  <!-- PANEL (Paso 3 - Después del registro y pago) -->
   <div id="panel" class="panel">
     
     <!-- HEADER -->
@@ -579,8 +587,6 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, on
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where }
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL }
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCgJITFOGXw-r5KYzz1zHlNz1jKw-_XMwM",
@@ -594,7 +600,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 // DOM Elements
 const paymentBox = document.getElementById("paymentBox");
@@ -613,18 +618,47 @@ const alertContainer = document.getElementById("alertContainer");
 
 let currentUser = null;
 let isVIP = false;
-let paymentVerified = false;
+let config = null;
 
 // ALERT FUNCTION
 function showAlert(message, type = "info") {
   const alert = document.createElement("div");
   alert.className = `alert ${type} show`;
   alert.textContent = message;
-  alertContainer.appendChild(alert);
+  
+  // Si no hay alertContainer (en authBox), usar el del panel o crear uno temporal
+  const target = alertContainer || document.body;
+  target.appendChild(alert);
   
   setTimeout(() => {
     alert.remove();
   }, 4000);
+}
+
+// LOAD CONFIG
+async function loadConfig() {
+  try {
+    const res = await fetch("/api/config");
+    const data = await res.json();
+    if (data.ok) {
+      config = data.config;
+      document.getElementById("priceDisplay").textContent = `💰 $${config.vipPrice} USD / Mes`;
+      loadPayPalSDK(config.paypalClientId);
+    }
+  } catch (e) {
+    console.error("Error cargando config:", e);
+    // Fallback
+    loadPayPalSDK("AVWBdRXW8EqPqVJdGPZIv2UKvJSLvLCVNAVqKPHQtqSHNDrKLfMKDHVQCHVKBfYvPP5mGrXQVRLUVjKV");
+  }
+}
+
+function loadPayPalSDK(clientId) {
+  if (window.paypal) return initPayPalButton();
+  
+  const script = document.createElement("script");
+  script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD`;
+  script.onload = () => initPayPalButton();
+  document.head.appendChild(script);
 }
 
 // AUTH FUNCTIONS
@@ -633,37 +667,21 @@ window.register = async () => {
   const password = document.getElementById("password").value.trim();
   
   if (!email || !password) {
-    showAlert("Por favor completa todos los campos", "error");
-    return;
-  }
-  
-  if (password.length < 6) {
-    showAlert("La contraseña debe tener al menos 6 caracteres", "error");
+    alert("Por favor completa todos los campos");
     return;
   }
   
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    // Create user document with VIP status
+    // Crear documento de usuario (no VIP por defecto)
     await setDoc(doc(db, "users", userCredential.user.uid), {
       email: email,
-      vip: true,
-      vip_expire: Date.now() + (30 * 24 * 60 * 60 * 1000),
-      createdAt: new Date().toISOString(),
-      paymentVerified: true,
-      lastPaymentDate: new Date().toISOString()
+      vip: false,
+      createdAt: new Date().toISOString()
     });
-    
-    showAlert("¡Registro exitoso! Bienvenido a VIP", "success");
+    alert("¡Cuenta creada! Ahora activa tu VIP para continuar.");
   } catch (error) {
-    if (error.code === "auth/email-already-in-use") {
-      showAlert("Este correo ya está registrado", "error");
-    } else if (error.code === "auth/weak-password") {
-      showAlert("La contraseña es muy débil", "error");
-    } else {
-      showAlert("Error en el registro: " + error.message, "error");
-    }
+    alert("Error: " + error.message);
   }
 };
 
@@ -672,44 +690,26 @@ window.loginExisting = async () => {
   const password = document.getElementById("password").value.trim();
   
   if (!email || !password) {
-    showAlert("Por favor completa todos los campos", "error");
+    alert("Por favor completa todos los campos");
     return;
   }
   
   try {
     await signInWithEmailAndPassword(auth, email, password);
-    showAlert("¡Bienvenido de vuelta!", "success");
   } catch (error) {
-    if (error.code === "auth/user-not-found") {
-      showAlert("Usuario no encontrado", "error");
-    } else if (error.code === "auth/wrong-password") {
-      showAlert("Contraseña incorrecta", "error");
-    } else {
-      showAlert("Error en el inicio de sesión: " + error.message, "error");
-    }
+    alert("Error: " + error.message);
   }
 };
 
 window.logout = async () => {
   await signOut(auth);
-  showAlert("Sesión cerrada", "info");
+  location.reload();
 };
 
 // FILE INPUT CHANGE
 fileInput.addEventListener("change", (e) => {
   if (e.target.files.length > 0) {
-    const file = e.target.files[0];
-    const maxSize = 100 * 1024 * 1024;
-    
-    if (file.size > maxSize) {
-      showAlert("El archivo es demasiado grande (máximo 100MB)", "error");
-      fileInput.value = "";
-      fileName.textContent = "";
-      uploadBtn.disabled = true;
-      return;
-    }
-    
-    fileName.textContent = `✓ ${file.name}`;
+    fileName.textContent = `✓ ${e.target.files[0].name}`;
     uploadBtn.disabled = false;
   }
 });
@@ -717,10 +717,7 @@ fileInput.addEventListener("change", (e) => {
 // UPLOAD FUNCTION
 window.upload = async () => {
   const file = fileInput.files[0];
-  if (!file) {
-    showAlert("Selecciona un archivo", "error");
-    return;
-  }
+  if (!file) return;
   
   uploadBtn.disabled = true;
   uploadBtn.textContent = "Subiendo...";
@@ -739,21 +736,19 @@ window.upload = async () => {
     });
 
     const data = await response.json();
-    
     if (data.ok) {
-      showAlert("¡Contenido subido exitosamente!", "success");
+      showAlert("¡Subido con éxito!", "success");
       fileInput.value = "";
       fileName.textContent = "";
       document.getElementById("fileTitle").value = "";
       document.getElementById("fileDescription").value = "";
-      uploadBtn.textContent = "Subir Contenido";
-      uploadBtn.disabled = true;
       loadGallery();
     } else {
-      throw new Error(data.error || "Error en la subida");
+      throw new Error(data.error);
     }
   } catch (error) {
-    showAlert("Error al subir: " + error.message, "error");
+    showAlert("Error: " + error.message, "error");
+  } finally {
     uploadBtn.textContent = "Subir Contenido";
     uploadBtn.disabled = false;
   }
@@ -766,39 +761,55 @@ async function loadGallery() {
   
   try {
     const snap = await getDocs(collection(db, "media"));
-    
     if (snap.empty) {
       emptyGallery.style.display = "block";
-      loading.classList.remove("active");
-      return;
+    } else {
+      emptyGallery.style.display = "none";
+      snap.forEach(doc => {
+        const data = doc.data();
+        const item = document.createElement("div");
+        item.className = "gallery-item";
+        
+        if (data.type.startsWith("image")) {
+          item.innerHTML = `<img src="${data.url}" alt="${data.title}">`;
+        } else {
+          item.innerHTML = `<video src="${data.url}" controls></video>`;
+        }
+        gallery.appendChild(item);
+      });
     }
-    
-    emptyGallery.style.display = "none";
-    
-    snap.forEach(doc => {
-      const data = doc.data();
-      const item = document.createElement("div");
-      item.className = "gallery-item";
-      
-      if (data.type.startsWith("image")) {
-        const img = document.createElement("img");
-        img.src = data.url;
-        img.alt = data.title || "Imagen";
-        item.appendChild(img);
-      } else if (data.type.startsWith("video")) {
-        const video = document.createElement("video");
-        video.src = data.url;
-        video.controls = true;
-        item.appendChild(video);
-      }
-      
-      gallery.appendChild(item);
-    });
   } catch (error) {
-    showAlert("Error al cargar la galería: " + error.message, "error");
+    console.error(error);
   } finally {
     loading.classList.remove("active");
   }
+}
+
+// PAYPAL BUTTON
+function initPayPalButton() {
+  paypal.Buttons({
+    createOrder: (data, actions) => {
+      return actions.order.create({
+        purchase_units: [{
+          amount: { value: config ? config.vipPrice : "9.99" }
+        }]
+      });
+    },
+    onApprove: async (data, actions) => {
+      const order = await actions.order.capture();
+      // Activar VIP en el backend
+      const res = await fetch("/verify-paypal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: currentUser.email, orderId: order.id })
+      });
+      
+      if (res.ok) {
+        alert("¡Pago exitoso! Tu VIP ha sido activado.");
+        location.reload();
+      }
+    }
+  }).render("#paypal-button-container");
 }
 
 // AUTH STATE CHANGE
@@ -807,81 +818,28 @@ onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     userEmail.textContent = user.email;
     
-    // Get user data
     const userDoc = await getDoc(doc(db, "users", user.uid));
+    const userData = userDoc.exists() ? userDoc.data() : {};
+    isVIP = userData.vip || false;
     
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      isVIP = userData.vip || false;
-      
-      // Check if VIP has expired
-      if (isVIP && userData.vip_expire) {
-        if (new Date().getTime() > userData.vip_expire) {
-          isVIP = false;
-        }
-      }
-    }
-    
-    // Show panel if VIP
     if (isVIP) {
-      paymentBox.style.display = "none";
       authBox.classList.remove("show");
+      paymentBox.classList.remove("show");
       panel.classList.add("show");
-      vipBadge.style.display = "inline-block";
-      uploadBox.style.display = "block";
       loadGallery();
     } else {
-      paymentBox.style.display = "block";
       authBox.classList.remove("show");
+      paymentBox.classList.add("show");
       panel.classList.remove("show");
     }
   } else {
-    currentUser = null;
-    paymentBox.style.display = "block";
-    authBox.classList.remove("show");
+    authBox.classList.add("show");
+    paymentBox.classList.remove("show");
     panel.classList.remove("show");
-    document.getElementById("email").value = "";
-    document.getElementById("password").value = "";
   }
 });
 
-// PAYPAL BUTTON
-function initPayPalButton() {
-  const container = document.getElementById("paypal-button-container");
-  container.innerHTML = "";
-  
-  paypal.Buttons({
-    createOrder: (data, actions) => {
-      return actions.order.create({
-        purchase_units: [{
-          amount: {
-            value: "9.99"
-          }
-        }]
-      });
-    },
-    onApprove: async (data, actions) => {
-      try {
-        const order = await actions.order.capture();
-        
-        // Mostrar formulario de registro
-        paymentBox.style.display = "none";
-        authBox.classList.add("show");
-        
-        showAlert("¡Pago confirmado! Ahora crea tu cuenta.", "success");
-      } catch (error) {
-        showAlert("Error al procesar el pago: " + error.message, "error");
-      }
-    },
-    onError: (err) => {
-      showAlert("Error en PayPal: " + err, "error");
-    }
-  }).render("#paypal-button-container");
-}
-
-// Initialize PayPal on load
-initPayPalButton();
-
+loadConfig();
 </script>
 
 </body>
