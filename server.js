@@ -556,6 +556,83 @@ app.post("/api/subscribe-channel", async (req, res) => {
   }
 });
 
+// 👤 GET /api/user-profile/:userId - Obtener perfil del usuario
+app.get("/api/user-profile/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
+    }
+    const userData = userDoc.data();
+    res.json({
+      ok: true,
+      profile: {
+        displayName: userData.displayName || "",
+        bio: userData.bio || "",
+        website: userData.website || "",
+        telegram: userData.telegram || "",
+        whatsapp: userData.whatsapp || "",
+        photoURL: userData.photoURL || ""
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 👤 POST /api/update-profile - Actualizar perfil del usuario
+app.post("/api/update-profile", async (req, res) => {
+  try {
+    const { userId, displayName, bio, website, telegram, whatsapp } = req.body;
+    if (!userId) return res.status(400).json({ ok: false, error: "userId requerido" });
+
+    await db.collection("users").doc(userId).set({
+      displayName: displayName || "",
+      bio: bio || "",
+      website: website || "",
+      telegram: telegram || "",
+      whatsapp: whatsapp || "",
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    res.json({ ok: true, message: "Perfil actualizado correctamente" });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 🖼️ POST /api/upload-avatar - Subir foto de perfil
+app.post("/api/upload-avatar", upload.single("avatar"), async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const file = req.file;
+
+    if (!userId || !file) {
+      return res.status(400).json({ ok: false, error: "userId y archivo requeridos" });
+    }
+
+    const fileExtension = path.extname(file.originalname);
+    const fileName = `avatars/${userId}_${Date.now()}${fileExtension}`;
+
+    const uploadParams = {
+      Bucket: R2_BUCKET_NAME,
+      Key: fileName,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    };
+
+    await s3Client.send(new PutObjectCommand(uploadParams));
+    const photoURL = `${R2_PUBLIC_URL}/${fileName}`;
+
+    await db.collection("users").doc(userId).update({ photoURL });
+
+    res.json({ ok: true, photoURL });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // 📊 GET /api/user-stats/:userId - Obtener estadísticas del usuario
 app.get("/api/user-stats/:userId", async (req, res) => {
   try {

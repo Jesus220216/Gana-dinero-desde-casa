@@ -711,6 +711,50 @@ body {
       <button class="upload-btn" id="uploadBtn" onclick="upload()" disabled>Subir Contenido</button>
     </div>
 
+    <!-- PROFILE SECTION -->
+    <div id="profileSection" style="margin-bottom: 30px; padding: 20px; background: rgba(15, 23, 42, 0.8); border-radius: 12px; border: 1px solid rgba(168, 85, 247, 0.3);">
+      <h3 style="margin-bottom: 15px; color: #a855f7; font-size: 18px;">👤 Mi Perfil de Creador</h3>
+      
+      <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start;">
+        <div style="text-align: center;">
+          <div id="profilePhotoContainer" style="width: 100px; height: 100px; border-radius: 50%; background: rgba(168, 85, 247, 0.2); margin-bottom: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid #a855f7;">
+            <img id="profilePhotoPreview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+            <span id="profilePhotoPlaceholder" style="font-size: 40px;">👤</span>
+          </div>
+          <input type="file" id="photoInput" accept="image/*" style="display: none;">
+          <button class="btn btn-secondary" onclick="document.getElementById('photoInput').click()" style="padding: 5px 10px; font-size: 12px;">Cambiar Foto</button>
+        </div>
+
+        <div style="flex: 1; min-width: 250px;">
+          <div class="form-group">
+            <label for="profileName">Nombre Público</label>
+            <input type="text" id="profileName" placeholder="Tu nombre artístico">
+          </div>
+          <div class="form-group">
+            <label for="profileBio">Biografía</label>
+            <textarea id="profileBio" placeholder="Cuéntale a tus seguidores sobre ti..." style="width: 100%; padding: 12px; border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 6px; background: rgba(30, 41, 59, 0.8); color: white; font-size: 14px; font-family: inherit; min-height: 80px;"></textarea>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-width: 250px;">
+          <div class="form-group">
+            <label for="profileWebsite">Enlace de Página</label>
+            <input type="url" id="profileWebsite" placeholder="https://tuweb.com">
+          </div>
+          <div class="form-group">
+            <label for="profileTelegram">Usuario de Telegram (sin @)</label>
+            <input type="text" id="profileTelegram" placeholder="usuario_telegram">
+          </div>
+          <div class="form-group">
+            <label for="profileWhatsapp">Número de WhatsApp (con código de país)</label>
+            <input type="text" id="profileWhatsapp" placeholder="5491122334455">
+          </div>
+        </div>
+      </div>
+      
+      <button class="btn btn-primary" onclick="saveProfile()" style="width: 100%; margin-top: 15px;">Guardar Cambios de Perfil</button>
+    </div>
+
     <!-- EARNINGS SECTION -->
     <div id="earningsSection" style="margin-bottom: 30px; padding: 20px; background: rgba(15, 23, 42, 0.8); border-radius: 12px; border: 1px solid rgba(168, 85, 247, 0.3);">
       <h3 style="margin-bottom: 15px; color: #22c55e; font-size: 18px;">💰 Mis Ganancias</h3>
@@ -991,25 +1035,110 @@ window.showDetail = (mediaId, media) => {
   detailModal.classList.add("active");
 };
 
-// LOAD EARNINGS STATS
-async function loadEarningsStats() {
-  try {
-    const response = await fetch(`/api/user-stats/${currentUser.uid}`);
-    const data = await response.json();
+// LOAD E  // 🔄 CARGAR DATOS INICIALES
+  async function loadUserData() {
+    if (!currentUser) return;
     
-    if (data.ok) {
-      document.getElementById("balance").textContent = `$${data.stats.balance.toFixed(2)}`;
-      document.getElementById("subscribers").textContent = data.stats.subscribers;
-      document.getElementById("totalEarnings").textContent = `$${data.stats.totalEarnings.toFixed(2)}`;
-    }
-  } catch (error) {
-    console.error("Error cargando estadísticas:", error);
-  }
-}
+    try {
+      // Cargar estadísticas
+      const statsRes = await fetch(`/api/user-stats/${currentUser.uid}`);
+      const statsData = await statsRes.json();
+      
+      if (statsData.ok) {
+        document.getElementById("balance").textContent = `$${statsData.stats.balance.toFixed(2)}`;
+        document.getElementById("subscribers").textContent = statsData.stats.subscribers;
+        document.getElementById("totalEarnings").textContent = `$${statsData.stats.totalEarnings.toFixed(2)}`;
+      }
 
-// LOAD GALLERY - SOLO CONTENIDO DEL USUARIO
-async function loadGallery() {
-  loading.classList.add("active");
+      // Cargar perfil
+      const profileRes = await fetch(`/api/user-profile/${currentUser.uid}`);
+      const profileData = await profileRes.json();
+      
+      if (profileData.ok) {
+        const p = profileData.profile;
+        document.getElementById("profileName").value = p.displayName || "";
+        document.getElementById("profileBio").value = p.bio || "";
+        document.getElementById("profileWebsite").value = p.website || "";
+        document.getElementById("profileTelegram").value = p.telegram || "";
+        document.getElementById("profileWhatsapp").value = p.whatsapp || "";
+        
+        if (p.photoURL) {
+          document.getElementById("profilePhotoPreview").src = p.photoURL;
+          document.getElementById("profilePhotoPreview").style.display = "block";
+          document.getElementById("profilePhotoPlaceholder").style.display = "none";
+        }
+      }
+    } catch (e) {
+      console.error("Error cargando datos de usuario:", e);
+    }
+    
+    loadMedia();
+  }
+
+  // 👤 GUARDAR PERFIL
+  window.saveProfile = async () => {
+    if (!currentUser) return;
+    
+    const displayName = document.getElementById("profileName").value;
+    const bio = document.getElementById("profileBio").value;
+    const website = document.getElementById("profileWebsite").value;
+    const telegram = document.getElementById("profileTelegram").value;
+    const whatsapp = document.getElementById("profileWhatsapp").value;
+    
+    try {
+      const response = await fetch("/api/update-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          displayName,
+          bio,
+          website,
+          telegram,
+          whatsapp
+        })
+      });
+      
+      const data = await response.json();
+      if (data.ok) {
+        showAlert("Perfil actualizado correctamente", "success");
+      } else {
+        showAlert("Error: " + data.error, "error");
+      }
+    } catch (e) {
+      showAlert("Error al conectar con el servidor", "error");
+    }
+  };
+
+  // 🖼️ SUBIR FOTO DE PERFIL
+  document.getElementById("photoInput").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file || !currentUser) return;
+    
+    const formData = new FormData();
+    formData.append("avatar", file);
+    formData.append("userId", currentUser.uid);
+    
+    try {
+      showAlert("Subiendo foto...", "info");
+      const response = await fetch("/api/upload-avatar", {
+        method: "POST",
+        body: formData
+      });
+      
+      const data = await response.json();
+      if (data.ok) {
+        document.getElementById("profilePhotoPreview").src = data.photoURL;
+        document.getElementById("profilePhotoPreview").style.display = "block";
+        document.getElementById("profilePhotoPlaceholder").style.display = "none";
+        showAlert("Foto de perfil actualizada", "success");
+      } else {
+        showAlert("Error: " + data.error, "error");
+      }
+    } catch (e) {
+      showAlert("Error al subir la foto", "error");
+    }
+  });oading.classList.add("active");
   gallery.innerHTML = "";
   
   try {

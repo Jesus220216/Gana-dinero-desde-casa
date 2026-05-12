@@ -51,10 +51,45 @@
       margin-bottom: 5px;
     }
 
-    .channel-info p {
+    .channel-info .email {
       font-size: 14px;
-      opacity: 0.9;
+      opacity: 0.7;
+      margin-bottom: 10px;
+    }
+
+    .channel-info .bio {
+      font-size: 15px;
       margin-bottom: 15px;
+      max-width: 600px;
+      line-height: 1.5;
+    }
+
+    .social-links {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+
+    .social-btn {
+      padding: 8px 15px;
+      border-radius: 20px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+
+    .btn-web { background: white; color: black; }
+    .btn-telegram { background: #0088cc; color: white; }
+    .btn-whatsapp { background: #25d366; color: white; }
+
+    .social-btn:hover {
+      transform: scale(1.05);
+      filter: brightness(1.1);
     }
 
     .channel-stats {
@@ -230,10 +265,12 @@
 
   <!-- CHANNEL HEADER -->
   <div class="channel-header" id="channelHeader">
-    <div class="channel-avatar" id="avatar"></div>
+    <div class="channel-avatar" id="avatar" style="overflow: hidden;"></div>
     <div class="channel-info">
       <h1 id="creatorName"></h1>
-      <p id="creatorEmail"></p>
+      <p id="creatorEmail" class="email"></p>
+      <p id="creatorBio" class="bio"></p>
+      
       <div class="channel-stats">
         <div class="stat">
           <div class="stat-value" id="subscriberCount">0</div>
@@ -247,6 +284,10 @@
           <div class="stat-value" id="totalViews">0</div>
           <div class="stat-label">Vistas</div>
         </div>
+      </div>
+
+      <div class="social-links" id="socialLinks">
+        <!-- Botones sociales dinámicos -->
       </div>
     </div>
   </div>
@@ -341,13 +382,43 @@ async function loadChannelInfo() {
     const statsData = await statsResponse.json();
 
     if (statsData.ok) {
-      const initials = creatorData.email.substring(0, 2).toUpperCase();
-      document.getElementById("avatar").textContent = initials;
-      document.getElementById("creatorName").textContent = creatorData.email.split("@")[0];
+      // Cargar perfil extendido
+      const profileRes = await fetch(`/api/user-profile/${creatorId}`);
+      const profileData = await profileRes.json();
+      
+      const p = profileData.ok ? profileData.profile : {};
+      
+      // Avatar
+      if (p.photoURL) {
+        document.getElementById("avatar").innerHTML = `<img src="${p.photoURL}" style="width:100%; height:100%; object-fit:cover;">`;
+      } else {
+        const initials = creatorData.email.substring(0, 2).toUpperCase();
+        document.getElementById("avatar").textContent = initials;
+      }
+
+      // Info básica
+      document.getElementById("creatorName").textContent = p.displayName || creatorData.email.split("@")[0];
       document.getElementById("creatorEmail").textContent = creatorData.email;
+      document.getElementById("creatorBio").textContent = p.bio || "Sin biografía disponible.";
+      
+      // Stats
       document.getElementById("subscriberCount").textContent = statsData.stats.subscribers;
       document.getElementById("contentCount").textContent = statsData.stats.contentCount;
       document.getElementById("totalViews").textContent = statsData.stats.totalViews;
+
+      // Botones sociales
+      const socialLinks = document.getElementById("socialLinks");
+      socialLinks.innerHTML = "";
+      
+      if (p.website) {
+        socialLinks.innerHTML += `<a href="${p.website}" target="_blank" class="social-btn btn-web">🌐 Página Web</a>`;
+      }
+      if (p.telegram) {
+        socialLinks.innerHTML += `<a href="https://t.me/${p.telegram}" target="_blank" class="social-btn btn-telegram">✈️ Telegram</a>`;
+      }
+      if (p.whatsapp) {
+        socialLinks.innerHTML += `<a href="https://wa.me/${p.whatsapp}" target="_blank" class="social-btn btn-whatsapp">💬 WhatsApp</a>`;
+      }
     }
   } catch (error) {
     console.error(error);
