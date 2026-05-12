@@ -958,8 +958,7 @@ window.upload = async () => {
       fileName.textContent = "";
       document.getElementById("fileTitle").value = "";
       document.getElementById("fileDescription").value = "";
-      loadGallery();
-      loadEarningsStats();
+      loadUserData();
     } else {
       throw new Error(data.error);
     }
@@ -1036,7 +1035,7 @@ window.showDetail = (mediaId, media) => {
 };
 
 // LOAD E  // 🔄 CARGAR DATOS INICIALES
-  async function loadUserData() {
+  window.loadUserData = async () => {
     if (!currentUser) return;
     
     try {
@@ -1138,8 +1137,13 @@ window.showDetail = (mediaId, media) => {
     } catch (e) {
       showAlert("Error al subir la foto", "error");
     }
-  });oading.classList.add("active");
-  gallery.innerHTML = "";
+  });
+
+  // 🖼️ CARGAR GALERÍA
+  window.loadGallery = async () => {
+    if (!currentUser) return;
+    loading.classList.add("active");
+    gallery.innerHTML = "";
   
   try {
     const response = await fetch(`/api/media-user?userId=${currentUser.uid}`);
@@ -1226,8 +1230,7 @@ onAuthStateChanged(auth, async (user) => {
       authBox.classList.remove("show");
       paymentBox.classList.remove("show");
       panel.classList.add("show");
-      loadGallery();
-      loadEarningsStats();
+      loadUserData();
     } else {
       authBox.classList.remove("show");
       paymentBox.classList.add("show");
