@@ -569,7 +569,7 @@ async function loadChannels() {
     for (const userDoc of usersSnap.docs) {
       const userData = userDoc.data();
       
-      if (userDoc.id === "owner" || userDoc.id === currentUser?.uid) continue;
+      if (userDoc.id === "owner" || (currentUser && userDoc.id === currentUser.uid)) continue;
 
       const statsResponse = await fetch(`/api/user-stats/${userDoc.id}`);
       const statsData = await statsResponse.json();
@@ -643,8 +643,10 @@ window.viewChannel = (creatorId) => {
 
 window.subscribeToChannel = (creatorId) => {
   if (!currentUser) {
-    showAlert("Debes iniciar sesión para suscribirte", "error");
-    window.location.href = "dashboard_v2.html";
+    showAlert("Debes registrarte o iniciar sesión para suscribirte a este canal", "info");
+    setTimeout(() => {
+      window.location.href = "dashboard_v2.html";
+    }, 2000);
     return;
   }
 
@@ -665,13 +667,8 @@ window.closePaymentModal = () => {
 };
 
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    currentUser = user;
-    loadChannels();
-  } else {
-    emptyMessage.style.display = "block";
-    emptyMessage.innerHTML = "<p>Debes <a href='dashboard_v2.html' style='color: #a855f7;'>iniciar sesión</a> para ver los canales.</p>";
-  }
+  currentUser = user;
+  loadChannels();
 });
 
 loadConfig();
