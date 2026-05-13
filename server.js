@@ -419,6 +419,97 @@ app.post("/api/increment-views", async (req, res) => {
   }
 });
 
+// ❤️ POST /api/like-media - Dar like a un contenido
+app.post("/api/like-media", async (req, res) => {
+  try {
+    const { mediaId, userId } = req.body;
+
+    if (!mediaId || !userId) {
+      return res.status(400).json({ ok: false, error: "mediaId y userId requeridos" });
+    }
+
+    const likeRef = await db.collection("likes").add({
+      mediaId,
+      userId,
+      createdAt: new Date().toISOString()
+    });
+
+    const mediaRef = db.collection("media").doc(mediaId);
+    const mediaDoc = await mediaRef.get();
+    const currentLikes = mediaDoc.data().likesCount || 0;
+    await mediaRef.update({ likesCount: currentLikes + 1 });
+
+    res.json({ ok: true, message: "Like añadido", likeId: likeRef.id });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// ❤️ POST /api/unlike-media - Quitar like de un contenido
+app.post("/api/unlike-media", async (req, res) => {
+  try {
+    const { mediaId, userId } = req.body;
+
+    if (!mediaId || !userId) {
+      return res.status(400).json({ ok: false, error: "mediaId y userId requeridos" });
+    }
+
+    const snap = await db.collection("likes")
+      .where("mediaId", "==", mediaId)
+      .where("userId", "==", userId)
+      .get();
+
+    if (snap.empty) {
+      return res.status(404).json({ ok: false, error: "No has dado like a este contenido" });
+    }
+
+    await snap.docs[0].ref.delete();
+
+    const mediaRef = db.collection("media").doc(mediaId);
+    const mediaDoc = await mediaRef.get();
+    const currentLikes = Math.max(0, (mediaDoc.data().likesCount || 1) - 1);
+    await mediaRef.update({ likesCount: currentLikes });
+
+    res.json({ ok: true, message: "Like removido" });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// ❤️ GET /api/likes/:mediaId - Obtener likes de un contenido
+app.get("/api/likes/:mediaId", async (req, res) => {
+  try {
+    const { mediaId } = req.params;
+    const snap = await db.collection("likes")
+      .where("mediaId", "==", mediaId)
+      .get();
+
+    const likes = [];
+    snap.forEach(doc => {
+      likes.push({ id: doc.id, ...doc.data() });
+    });
+
+    res.json({ ok: true, likes, count: likes.length });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// ❤️ GET /api/has-liked/:mediaId/:userId - Verificar si el usuario ha dado like
+app.get("/api/has-liked/:mediaId/:userId", async (req, res) => {
+  try {
+    const { mediaId, userId } = req.params;
+    const snap = await db.collection("likes")
+      .where("mediaId", "==", mediaId)
+      .where("userId", "==", userId)
+      .get();
+
+    res.json({ ok: true, hasLiked: !snap.empty });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // 💬 POST /api/add-comment - Añadir comentario
 app.post("/api/add-comment", async (req, res) => {
   try {
@@ -428,12 +519,24 @@ app.post("/api/add-comment", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Campos requeridos faltantes" });
     }
 
+    let userInfo = { displayName: "Usuario", photoURL: "" };
+    try {
+      const userDoc = await db.collection("users").doc(userId).get();
+      if (userDoc.exists) {
+        userInfo = {
+          displayName: userDoc.data().displayName || "Usuario",
+          photoURL: userDoc.data().photoURL || ""
+        };
+      }
+    } catch (e) {}
+
     const comment = {
       userId,
-      userName: userName || "Anónimo",
+      userName: userInfo.displayName,
+      userPhoto: userInfo.photoURL,
       text,
       createdAt: new Date().toISOString(),
-      likes: 0
+      likesCount: 0
     };
 
     await db.collection("media").doc(mediaId).collection("comments").add(comment);

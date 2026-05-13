@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perfil - TikTok Clone</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: white;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    .back-btn:hover {
+      color: #667eea;
+    }
+
+    /* PROFILE HEADER */
+    .profile-header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 30px 20px;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      border-radius: 12px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+    }
+
+    .profile-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      object-fit: cover;
+      margin: 0 auto 20px;
+      border: 3px solid rgba(102, 126, 234, 0.3);
+    }
+
+    .profile-name {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .profile-username {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 15px;
+    }
+
+    .profile-bio {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+      max-width: 600px;
+      margin: 0 auto 20px;
+      line-height: 1.6;
+    }
+
+    .profile-stats {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      margin: 30px 0;
+      padding: 20px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 24px;
+      font-weight: 700;
+      color: #667eea;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 5px;
+    }
+
+    .profile-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 24px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #764ba2;
+      transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .profile-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .profile-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #667eea;
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.3s ease;
+    }
+
+    .profile-link:hover {
+      color: #764ba2;
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 0;
+      margin: 30px 0 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .tab:hover {
+      color: white;
+    }
+
+    .tab.active {
+      color: white;
+      border-bottom-color: #667eea;
+    }
+
+    /* GALLERY */
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .gallery-item {
+      aspect-ratio: 9/16;
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .gallery-item:hover {
+      transform: scale(1.02);
+      border-color: #667eea;
+    }
+
+    .gallery-item img,
+    .gallery-item video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .gallery-item-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .gallery-item:hover .gallery-item-overlay {
+      opacity: 1;
+    }
+
+    .gallery-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .gallery-stat-number {
+      font-weight: 700;
+      font-size: 16px;
+      color: #667eea;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .empty-state-icon {
+      font-size: 60px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    /* MODAL */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: rgba(20, 20, 30, 0.95);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 20px;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      font-size: 28px;
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-close:hover {
+      color: #667eea;
+    }
+
+    .modal-media {
+      width: 100%;
+      max-height: 80vh;
+      object-fit: contain;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .modal-info {
+      padding: 20px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .modal-description {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    .modal-stats {
+      display: flex;
+      gap: 20px;
+      padding: 15px;
+      background: rgba(102, 126, 234, 0.1);
+      border-radius: 8px;
+    }
+
+    .modal-stat {
+      text-align: center;
+      flex: 1;
+    }
+
+    .modal-stat-number {
+      font-size: 18px;
+      font-weight: 700;
+      color: #667eea;
+    }
+
+    .modal-stat-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 5px;
+    }
+
+    /* LOADING */
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(102, 126, 234, 0.3);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .profile-avatar {
+        width: 100px;
+        height: 100px;
+      }
+
+      .profile-name {
+        font-size: 24px;
+      }
+
+      .profile-stats {
+        gap: 20px;
+      }
+
+      .gallery {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      }
+
+      .tabs {
+        flex-wrap: wrap;
+      }
+
+      .tab {
+        padding: 10px 16px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <!-- HEADER -->
+  <div class="header">
+    <button class="back-btn" onclick="window.history.back()">← Atrás</button>
+    <div style="flex: 1; text-align: center; font-weight: 700;">Perfil</div>
+    <div style="width: 40px;"></div>
+  </div>
+
+  <!-- PROFILE HEADER -->
+  <div class="profile-header" id="profileHeader">
+    <div class="loading">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('videos', this)">📹 Videos</button>
+    <button class="tab" onclick="switchTab('likes', this)">❤️ Me gusta</button>
+    <button class="tab" onclick="switchTab('followers', this)">👥 Seguidores</button>
+  </div>
+
+  <!-- GALLERY -->
+  <div class="gallery" id="gallery"></div>
+  <div class="empty-state" id="emptyState" style="display: none;">
+    <div class="empty-state-icon">📭</div>
+    <p>Sin contenido disponible</p>
+  </div>
+</div>
+
+<!-- MEDIA MODAL -->
+<div class="modal" id="mediaModal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgJITFOGXw-r5KYzz1zHlNz1jKw-_XMwM",
+  authDomain: "monetizacion-pro.firebaseapp.com",
+  projectId: "monetizacion-pro",
+  storageBucket: "monetizacion-pro.appspot.com",
+  messagingSenderId: "580361577178",
+  appId: "1:580361577178:web:b86b0a8301e94b93997be3"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+let currentUser = null;
+let creatorId = null;
+let creatorMedia = [];
+let currentTab = 'videos';
+
+// Obtener creatorId de la URL
+function getCreatorId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('id');
+}
+
+// Cargar perfil del creador
+async function loadCreatorProfile() {
+  creatorId = getCreatorId();
+  if (!creatorId) {
+    document.getElementById('profileHeader').innerHTML = '<p>Creador no encontrado</p>';
+    return;
+  }
+
+  try {
+    const profRes = await fetch(`/api/user-profile/${creatorId}`);
+    const profData = await profRes.json();
+
+    const statsRes = await fetch(`/api/user-stats/${creatorId}`);
+    const statsData = await statsRes.json();
+
+    if (profData.ok && statsData.ok) {
+      const profile = profData.profile;
+      const stats = statsData.stats;
+
+      document.getElementById('profileHeader').innerHTML = `
+        <img src="${profile.photoURL || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22 fill=%22%23667eea%22/%3E%3C/svg%3E'}" class="profile-avatar" alt="${profile.displayName}">
+        <div class="profile-name">${profile.displayName || 'Creador'}</div>
+        <div class="profile-username">@${creatorId}</div>
+        <div class="profile-bio">${profile.bio || 'Sin descripción'}</div>
+        
+        <div class="profile-stats">
+          <div class="stat-item">
+            <span class="stat-number">${stats.subscribers || 0}</span>
+            <span class="stat-label">Seguidores</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">${stats.totalViews || 0}</span>
+            <span class="stat-label">Vistas</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-number">${stats.totalEarnings ? '$' + stats.totalEarnings.toFixed(2) : '$0.00'}</span>
+            <span class="stat-label">Ganancias</span>
+          </div>
+        </div>
+
+        <div class="profile-actions">
+          <button class="btn btn-primary" onclick="toggleFollow('${creatorId}', this)">+ Seguir</button>
+          <button class="btn btn-secondary" onclick="alert('Mensaje próximamente')">💬 Mensaje</button>
+        </div>
+
+        <div class="profile-links">
+          ${profile.website ? `<a href="${profile.website}" target="_blank" class="profile-link">🌐 Sitio web</a>` : ''}
+          ${profile.telegram ? `<a href="https://t.me/${profile.telegram}" target="_blank" class="profile-link">📱 Telegram</a>` : ''}
+          ${profile.whatsapp ? `<a href="https://wa.me/${profile.whatsapp}" target="_blank" class="profile-link">💬 WhatsApp</a>` : ''}
+        </div>
+      `;
+
+      await loadCreatorMedia();
+    }
+  } catch (error) {
+    console.error("Error cargando perfil:", error);
+    document.getElementById('profileHeader').innerHTML = '<p>Error al cargar el perfil</p>';
+  }
+}
+
+// Cargar contenido del creador
+async function loadCreatorMedia() {
+  try {
+    const response = await fetch(`/api/channel/${creatorId}?userId=${currentUser?.uid || 'anonymous'}`);
+    const data = await response.json();
+
+    if (data.ok) {
+      creatorMedia = data.media;
+      renderGallery();
+    }
+  } catch (error) {
+    console.error("Error cargando contenido:", error);
+  }
+}
+
+// Renderizar galería
+function renderGallery() {
+  const gallery = document.getElementById('gallery');
+  const emptyState = document.getElementById('emptyState');
+
+  gallery.innerHTML = '';
+
+  let mediaToShow = creatorMedia;
+
+  if (currentTab === 'likes') {
+    // Mostrar solo contenido con likes
+    mediaToShow = creatorMedia.filter(m => m.likesCount > 0);
+  }
+
+  if (mediaToShow.length === 0) {
+    emptyState.style.display = 'block';
+    gallery.style.display = 'none';
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  gallery.style.display = 'grid';
+
+  for (const media of mediaToShow) {
+    const item = document.createElement('div');
+    item.className = 'gallery-item';
+
+    const mediaElement = media.type.startsWith('image')
+      ? `<img src="${media.url}" alt="${media.title}">`
+      : `<video src="${media.url}"></video>`;
+
+    item.innerHTML = `
+      ${mediaElement}
+      <div class="gallery-item-overlay">
+        <div class="gallery-stat">
+          <div class="gallery-stat-number">❤️ ${media.likesCount || 0}</div>
+          <div>Me gusta</div>
+        </div>
+        <div class="gallery-stat">
+          <div class="gallery-stat-number">💬 ${media.comments || 0}</div>
+          <div>Comentarios</div>
+        </div>
+      </div>
+    `;
+
+    item.onclick = () => showMediaDetail(media);
+    gallery.appendChild(item);
+  }
+}
+
+// Mostrar detalles del contenido
+function showMediaDetail(media) {
+  const modalBody = document.getElementById('modalBody');
+  const mediaElement = media.type.startsWith('image')
+    ? `<img src="${media.url}" class="modal-media" alt="${media.title}">`
+    : `<video src="${media.url}" class="modal-media" controls></video>`;
+
+  modalBody.innerHTML = `
+    ${mediaElement}
+    <div class="modal-info">
+      <div class="modal-title">${media.title}</div>
+      <div class="modal-description">${media.description || 'Sin descripción'}</div>
+      <div class="modal-stats">
+        <div class="modal-stat">
+          <div class="modal-stat-number">${media.views || 0}</div>
+          <div class="modal-stat-label">Vistas</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-number">${media.likesCount || 0}</div>
+          <div class="modal-stat-label">Me gusta</div>
+        </div>
+        <div class="modal-stat">
+          <div class="modal-stat-number">${media.comments || 0}</div>
+          <div class="modal-stat-label">Comentarios</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('mediaModal').classList.add('active');
+}
+
+// Cerrar modal
+window.closeModal = () => {
+  document.getElementById('mediaModal').classList.remove('active');
+};
+
+// Cambiar tab
+window.switchTab = (tab, element) => {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  element.classList.add('active');
+  renderGallery();
+};
+
+// Toggle Follow
+window.toggleFollow = async (creatorIdToFollow, btn) => {
+  if (!currentUser) {
+    alert("Debes iniciar sesión para seguir creadores");
+    return;
+  }
+
+  try {
+    const isFollowing = btn.textContent.includes('Siguiendo');
+    
+    if (isFollowing) {
+      await fetch('/api/unfollow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.uid, creatorId: creatorIdToFollow })
+      });
+      btn.textContent = '+ Seguir';
+    } else {
+      await fetch('/api/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.uid, creatorId: creatorIdToFollow })
+      });
+      btn.textContent = '✓ Siguiendo';
+    }
+  } catch (e) {
+    console.error('Error:', e);
+  }
+};
+
+// Inicializar
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+  loadCreatorProfile();
+});
+</script>
+
+</body>
+</html>
