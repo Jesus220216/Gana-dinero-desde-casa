@@ -331,8 +331,8 @@ async function loadPublicMedia() {
         } catch (e) {}
 
         const mediaHtml = media.type.startsWith("image") 
-          ? `<img src="${media.url}" alt="${media.title}" onclick="showDetail(${JSON.stringify(media).replace(/"/g, '&quot;')})">`
-          : `<video src="${media.url}" onclick="showDetail(${JSON.stringify(media).replace(/"/g, '&quot;')})"></video>`;
+          ? `<img src="${media.url}" alt="${media.title}" data-media-id="${media.id}" onclick="showDetail(${JSON.stringify(media).replace(/"/g, '&quot;')})">`
+          : `<video src="${media.url}" data-media-id="${media.id}" onclick="showDetail(${JSON.stringify(media).replace(/"/g, '&quot;')})"></video>`;
 
         item.innerHTML = `
           ${mediaHtml}
@@ -361,8 +361,21 @@ async function loadPublicMedia() {
 window.showDetail = (media) => {
   const modalBody = document.getElementById("modalBody");
   const mediaElement = media.type.startsWith("image") 
-    ? `<img src="${media.url}" class="modal-media" alt="${media.title}">`
-    : `<video src="${media.url}" class="modal-media" controls></video>`;
+    ? `<img src="${media.url}" class="modal-media" alt="${media.title}" data-media-id="${media.id}">`
+    : `<video src="${media.url}" class="modal-media" controls data-media-id="${media.id}"></video>`;
+  
+  // Registrar visita automáticamente
+  setTimeout(() => {
+    try {
+      fetch('/api/increment-views', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaId: media.id })
+      }).catch(e => console.error('Error registrando visita:', e));
+    } catch (e) {
+      console.error('Error registrando visita:', e);
+    }
+  }, 100);
 
   modalBody.innerHTML = `
     ${mediaElement}

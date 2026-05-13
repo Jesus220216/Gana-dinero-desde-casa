@@ -450,9 +450,9 @@ async function loadChannelContent() {
           `;
         } else {
           if (media.type.startsWith("image")) {
-            item.innerHTML = `<img src="${media.url}" alt="${media.title}">`;
+            item.innerHTML = `<img src="${media.url}" alt="${media.title}" data-media-id="${media.id}">`;
           } else {
-            item.innerHTML = `<video src="${media.url}"></video>`;
+            item.innerHTML = `<video src="${media.url}" data-media-id="${media.id}"></video>`;
           }
           
           const overlay = document.createElement("div");
@@ -481,8 +481,21 @@ async function loadChannelContent() {
 window.showDetail = (mediaId, media) => {
   const modalBody = document.getElementById("modalBody");
   const mediaElement = media.type.startsWith("image") 
-    ? `<img src="${media.url}" style="width: 100%; border-radius: 8px; margin-bottom: 20px;">`
-    : `<video src="${media.url}" controls style="width: 100%; border-radius: 8px; margin-bottom: 20px;"></video>`;
+    ? `<img src="${media.url}" style="width: 100%; border-radius: 8px; margin-bottom: 20px;" data-media-id="${media.id}">`
+    : `<video src="${media.url}" controls style="width: 100%; border-radius: 8px; margin-bottom: 20px;" data-media-id="${media.id}"></video>`;
+  
+  // Registrar visita automáticamente
+  setTimeout(() => {
+    try {
+      fetch('/api/increment-views', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaId: media.id })
+      }).catch(e => console.error('Error registrando visita:', e));
+    } catch (e) {
+      console.error('Error registrando visita:', e);
+    }
+  }, 100);
 
   modalBody.innerHTML = `
     ${mediaElement}
