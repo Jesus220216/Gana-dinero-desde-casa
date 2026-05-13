@@ -1,0 +1,34 @@
+# Dependencias
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Archivos de entorno
+.env
+.env.local
+.env.*.local
+
+# Credenciales Firebase
+serviceAccountKey.json
+firebase-admin.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Caché
+.cache/
+dist/
+build/
+
+# Sistema operativo
+Thumbs.db
+.DS_Store

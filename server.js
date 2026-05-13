@@ -700,6 +700,115 @@ app.get("/api/owner-stats", async (req, res) => {
   }
 });
 
+// 👥 POST /api/follow - Seguir a un creador
+app.post("/api/follow", async (req, res) => {
+  try {
+    const { userId, creatorId } = req.body;
+
+    if (!userId || !creatorId) {
+      return res.status(400).json({ ok: false, error: "userId y creatorId requeridos" });
+    }
+
+    if (userId === creatorId) {
+      return res.status(400).json({ ok: false, error: "No puedes seguirte a ti mismo" });
+    }
+
+    const followRef = await db.collection("followers").add({
+      followerId: userId,
+      followingId: creatorId,
+      followedAt: new Date().toISOString()
+    });
+
+    res.json({ ok: true, message: "Siguiendo al creador", followId: followRef.id });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 👥 POST /api/unfollow - Dejar de seguir a un creador
+app.post("/api/unfollow", async (req, res) => {
+  try {
+    const { userId, creatorId } = req.body;
+
+    if (!userId || !creatorId) {
+      return res.status(400).json({ ok: false, error: "userId y creatorId requeridos" });
+    }
+
+    const snap = await db.collection("followers")
+      .where("followerId", "==", userId)
+      .where("followingId", "==", creatorId)
+      .get();
+
+    if (snap.empty) {
+      return res.status(404).json({ ok: false, error: "No estás siguiendo a este creador" });
+    }
+
+    await snap.docs[0].ref.delete();
+    res.json({ ok: true, message: "Dejaste de seguir al creador" });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 👥 GET /api/followers/:creatorId - Obtener seguidores de un creador
+app.get("/api/followers/:creatorId", async (req, res) => {
+  try {
+    const { creatorId } = req.params;
+    const snap = await db.collection("followers")
+      .where("followingId", "==", creatorId)
+      .get();
+
+    const followers = [];
+    snap.forEach(doc => {
+      followers.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({ ok: true, followers, count: followers.length });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 👥 GET /api/following/:userId - Obtener creadores que sigue un usuario
+app.get("/api/following/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const snap = await db.collection("followers")
+      .where("followerId", "==", userId)
+      .get();
+
+    const following = [];
+    snap.forEach(doc => {
+      following.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    res.json({ ok: true, following, count: following.length });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// 👥 GET /api/is-following/:userId/:creatorId - Verificar si sigue a un creador
+app.get("/api/is-following/:userId/:creatorId", async (req, res) => {
+  try {
+    const { userId, creatorId } = req.params;
+    const snap = await db.collection("followers")
+      .where("followerId", "==", userId)
+      .where("followingId", "==", creatorId)
+      .get();
+
+    res.json({ ok: true, isFollowing: !snap.empty });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 // 🔐 GET /api/check-subscription - Verificar si el usuario está suscrito a un canal
 app.get("/api/check-subscription/:userId/:creatorId", async (req, res) => {
   try {

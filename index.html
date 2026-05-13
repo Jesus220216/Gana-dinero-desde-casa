@@ -1,169 +1,493 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ganar Dinero Desde Tu Celular</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feed de Publicaciones - Plataforma de Monetización</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-<!-- ANALYTICS -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-6VB8W0PZP0"></script>
-<script>
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-6VB8W0PZP0');
-</script>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #000;
+      color: white;
+      overflow-x: hidden;
+    }
 
-<style>
-body{
-  margin:0;
-  font-family:Arial;
-  background:#020617;
-  color:white;
-  text-align:center
-}
+    .container {
+      max-width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-.container{
-  max-width:600px;
-  margin:auto;
-  padding:20px
-}
+    /* HEADER */
+    .header {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-.card{
-  background:#0f172a;
-  padding:15px;
-  border-radius:12px;
-  margin:15px 0
-}
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 24px;
+      font-weight: bold;
+    }
 
-.btn{
-  display:block;
-  padding:14px;
-  border-radius:10px;
-  margin-top:10px;
-  text-decoration:none;
-  font-weight:bold
-}
+    .header-right {
+      display: flex;
+      gap: 10px;
+    }
 
-.green{background:#22c55e;color:black}
-.blue{background:#38bdf8;color:black}
-.orange{background:#f59e0b;color:black}
-.purple{background:#a855f7;color:white}
+    .btn-header {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      font-size: 14px;
+    }
 
-.counter{
-  color:#38bdf8;
-  margin:10px 0
-}
+    .btn-dashboard {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
 
-.highlight{
-  color:#22c55e;
-  font-weight:bold
-}
+    .btn-dashboard:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
 
-.warning{
-  color:#f59e0b;
-  font-weight:bold
-}
+    /* FEED CONTAINER */
+    .feed-container {
+      flex: 1;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+    }
 
-.badge{
-  background:#ef4444;
-  color:white;
-  padding:3px 8px;
-  border-radius:6px;
-  font-size:12px
-}
+    .feed-container::-webkit-scrollbar {
+      width: 4px;
+    }
 
-/* CTA FLOTANTE */
-.floating{
-  position:fixed;
-  bottom:15px;
-  left:50%;
-  transform:translateX(-50%);
-  width:90%;
-  max-width:400px;
-  z-index:999;
-}
+    .feed-container::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+    }
 
-/* ANIMACIÓN */
-.pulse{
-  animation:pulse 1.5s infinite;
-}
+    .feed-container::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 2px;
+    }
 
-@keyframes pulse{
-  0%{transform:scale(1);}
-  50%{transform:scale(1.05);}
-  100%{transform:scale(1);}
-}
-</style>
+    /* POST CARD */
+    .post-card {
+      width: 100%;
+      min-height: 100vh;
+      scroll-snap-align: start;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+      position: relative;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .post-media {
+      flex: 1;
+      width: 100%;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .post-media img,
+    .post-media video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .post-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+      padding: 40px 20px 20px;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .post-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      line-height: 1.3;
+    }
+
+    .post-description {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 15px;
+      line-height: 1.4;
+      max-height: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .post-creator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .creator-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .creator-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .creator-name {
+      font-weight: 700;
+      font-size: 14px;
+      display: block;
+      text-decoration: none;
+      color: white;
+      transition: color 0.3s ease;
+    }
+
+    .creator-name:hover {
+      color: #667eea;
+    }
+
+    .creator-bio {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .follow-btn {
+      padding: 6px 16px;
+      border: none;
+      border-radius: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 13px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .follow-btn.follow {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    .follow-btn.follow:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .follow-btn.following {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .follow-btn.following:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* SIDE ACTIONS */
+    .side-actions {
+      position: absolute;
+      right: 15px;
+      bottom: 100px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 10;
+    }
+
+    .action-btn {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .action-btn:hover {
+      background: rgba(0, 0, 0, 0.8);
+      transform: scale(1.1);
+    }
+
+    .action-btn.liked {
+      color: #ff1744;
+    }
+
+    .action-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      text-align: center;
+      margin-top: 4px;
+    }
+
+    /* STATS */
+    .post-stats {
+      display: flex;
+      gap: 20px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-top: 10px;
+    }
+
+    /* LOADING */
+    .loading {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 3px solid rgba(102, 126, 234, 0.3);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 20px;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .empty-state-icon {
+      font-size: 60px;
+      opacity: 0.5;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .post-overlay {
+        padding: 30px 15px 15px;
+        min-height: 150px;
+      }
+
+      .post-title {
+        font-size: 16px;
+      }
+
+      .post-description {
+        font-size: 13px;
+      }
+
+      .side-actions {
+        right: 10px;
+        bottom: 80px;
+      }
+
+      .action-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+      }
+    }
+
+    /* MODAL */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: rgba(20, 20, 30, 0.95);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 20px;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      font-size: 28px;
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-close:hover {
+      color: #667eea;
+    }
+
+    .creator-profile {
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .creator-profile-avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      object-fit: cover;
+      margin: 0 auto 15px;
+    }
+
+    .creator-profile-name {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .creator-profile-bio {
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 15px;
+    }
+
+    .creator-profile-stats {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin: 20px 0;
+      padding: 15px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 18px;
+      font-weight: 700;
+      color: #667eea;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 5px;
+    }
+  </style>
 </head>
 
 <body>
 
 <div class="container">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      🎬 Feed
+    </div>
+    <div class="header-right">
+      <a href="channels.html" class="btn-header" style="background: rgba(255, 255, 255, 0.1); color: white;">📺 Canales</a>
+      <a href="dashboard_v2.html" class="btn-header btn-dashboard">📊 Dashboard</a>
+    </div>
+  </div>
 
-<h1>💸 Gana dinero desde tu celular</h1>
-
-<p class="highlight">✔ Disponible hoy | ✔ Funciona en tu país</p>
-<p class="warning">⚠️ Acceso limitado hoy</p>
-
-<p id="dynamic">Personas generando ingresos ahora</p>
-
-<div class="counter" id="counter">
-👥 112 personas viendo ahora
+  <!-- FEED -->
+  <div class="feed-container" id="feedContainer">
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Cargando publicaciones...</p>
+    </div>
+  </div>
 </div>
 
-<div class="card">
-<h3>🧾 Encuestas pagadas</h3>
-<a id="btn1" class="btn blue" href="#">
-EMPEZAR 🔥
-</a>
+<!-- MODAL PARA PERFIL DEL CREADOR -->
+<div class="modal" id="creatorModal">
+  <div class="modal-content">
+    <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
+    <div id="creatorModalBody"></div>
+  </div>
 </div>
 
-<div class="card">
-<h3>🎁 Ofertas</h3>
-<a id="btn2" class="btn orange" href="#">
-VER 💰
-</a>
-</div>
-
-<div class="card">
-<h3>🚀 Acceso rápido</h3>
-<a id="btn3" class="btn green" href="#">
-ENTRAR 🚀
-</a>
-</div>
-
-<div class="card pulse">
-<h3>
-🔒 Contenido exclusivo
-<span class="badge">HOT</span>
-</h3>
-
-<a id="btnXXX" class="btn purple" href="#">
-VER AHORA 🔥
-</a>
-</div>
-
-<!-- PAYPAL -->
-<div class="card">
-<h3>💳 Pago Seguro</h3>
-
-<div id="paypal-container-BLX9XGMDH74AQ"></div>
-</div>
-
-</div>
-
-<!-- CTA FLOTANTE -->
-<div class="floating">
-<a id="btnCTA" class="btn green pulse" href="#">
-🚀 EMPEZAR AHORA GRATIS
-</a>
-</div>
-
-<!-- FIREBASE -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCgJITFOGXw-r5KYzz1zHlNz1jKw-_XMwM",
@@ -175,115 +499,275 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const auth = getAuth(app);
 
-// USER
-let userId = localStorage.getItem('uid');
+const feedContainer = document.getElementById("feedContainer");
+const loading = document.getElementById("loading");
+const creatorModal = document.getElementById("creatorModal");
 
-if(!userId){
-  userId = 'user_' + Math.random().toString(36).substr(2,9);
-  localStorage.setItem('uid', userId);
+let currentUser = null;
+let currentMedia = [];
+let likedPosts = new Set();
+let followingCreators = new Set();
+
+// Cargar datos del localStorage
+function loadLocalData() {
+  const saved = localStorage.getItem("likedPosts");
+  if (saved) likedPosts = new Set(JSON.parse(saved));
+  
+  const savedFollowing = localStorage.getItem("followingCreators");
+  if (savedFollowing) followingCreators = new Set(JSON.parse(savedFollowing));
 }
 
-// BOTONES
-const btn1 = document.getElementById("btn1");
-const btn2 = document.getElementById("btn2");
-const btn3 = document.getElementById("btn3");
-const btnXXX = document.getElementById("btnXXX");
-const btnCTA = document.getElementById("btnCTA");
+// Guardar datos en localStorage
+function saveLocalData() {
+  localStorage.setItem("likedPosts", JSON.stringify([...likedPosts]));
+  localStorage.setItem("followingCreators", JSON.stringify([...followingCreators]));
+}
 
-// LINKS
-const links = {
-  encuestas: `https://offers.cpx-research.com/index.php?app_id=32499&ext_user_id=${userId}`,
-  ofertas: `https://www.cpagrip.com/showoffers.php?user_id=2519034&subid=${userId}`,
-  smart: `https://www.profitablecpmratenetwork.com/pc3mhwtn?key=38446cbb008fe783a6ae69f89282fb31&subid=${userId}`,
-  xxx: `https://gana-dinero-desde-casa.onrender.com/home.html`
+// Obtener publicaciones públicas
+async function loadPublicMedia() {
+  loading.style.display = "flex";
+  feedContainer.innerHTML = "";
+
+  try {
+    const response = await fetch("/api/media-public");
+    const data = await response.json();
+
+    if (!data.ok || data.media.length === 0) {
+      feedContainer.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <p>No hay publicaciones disponibles</p>
+        </div>
+      `;
+      loading.style.display = "none";
+      return;
+    }
+
+    currentMedia = data.media;
+    loading.style.display = "none";
+
+    // Renderizar cada publicación
+    for (const media of currentMedia) {
+      await renderPost(media);
+    }
+  } catch (error) {
+    console.error(error);
+    feedContainer.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">⚠️</div>
+        <p>Error al cargar publicaciones</p>
+      </div>
+    `;
+    loading.style.display = "none";
+  }
+}
+
+// Renderizar una publicación
+async function renderPost(media) {
+  // Obtener info del creador
+  let creatorName = "Creador";
+  let creatorPhoto = "";
+  let creatorBio = "";
+
+  try {
+    const profRes = await fetch(`/api/user-profile/${media.uploadedBy}`);
+    const profData = await profRes.json();
+    if (profData.ok) {
+      creatorName = profData.profile.displayName || "Creador";
+      creatorPhoto = profData.profile.photoURL || "";
+      creatorBio = profData.profile.bio || "";
+    }
+  } catch (e) {}
+
+  const isLiked = likedPosts.has(media.id);
+  const isFollowing = followingCreators.has(media.uploadedBy);
+
+  const mediaElement = media.type.startsWith("image")
+    ? `<img src="${media.url}" alt="${media.title}">`
+    : `<video src="${media.url}" controls></video>`;
+
+  const postCard = document.createElement("div");
+  postCard.className = "post-card";
+  postCard.innerHTML = `
+    <div class="post-media">
+      ${mediaElement}
+      <div class="post-overlay">
+        <div class="post-title">${media.title}</div>
+        <div class="post-description">${media.description || ""}</div>
+        <div class="post-creator">
+          <img src="${creatorPhoto || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22 fill=%22%23667eea%22/%3E%3C/svg%3E'}" class="creator-avatar" alt="${creatorName}">
+          <div class="creator-info">
+            <a href="#" class="creator-name" onclick="showCreatorProfile('${media.uploadedBy}', event)">${creatorName}</a>
+            <div class="creator-bio">${creatorBio}</div>
+          </div>
+          <button class="follow-btn ${isFollowing ? 'following' : 'follow'}" onclick="toggleFollow('${media.uploadedBy}', this)">
+            ${isFollowing ? '✓ Siguiendo' : '+ Seguir'}
+          </button>
+        </div>
+        <div class="post-stats">
+          <span>👁️ ${media.views || 0} vistas</span>
+          <span>💬 ${media.comments || 0} comentarios</span>
+        </div>
+      </div>
+      <div class="side-actions">
+        <div>
+          <button class="action-btn ${isLiked ? 'liked' : ''}" onclick="toggleLike('${media.id}', this)">❤️</button>
+          <div class="action-label">${isLiked ? 'Me gusta' : ''}</div>
+        </div>
+        <div>
+          <button class="action-btn" onclick="sharePost('${media.id}')">📤</button>
+          <div class="action-label">Compartir</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  feedContainer.appendChild(postCard);
+
+  // Registrar visita
+  setTimeout(() => {
+    fetch('/api/increment-views', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mediaId: media.id })
+    }).catch(e => console.error('Error registrando visita:', e));
+  }, 500);
+}
+
+// Toggle Like
+window.toggleLike = (mediaId, btn) => {
+  if (likedPosts.has(mediaId)) {
+    likedPosts.delete(mediaId);
+    btn.classList.remove('liked');
+  } else {
+    likedPosts.add(mediaId);
+    btn.classList.add('liked');
+  }
+  saveLocalData();
 };
 
-// TRACK
-async function track(event){
-  try{
-    await addDoc(collection(db, "clicks"), {
-      user:userId,
-      event:event,
-      time:new Date().toISOString()
+// Toggle Follow
+window.toggleFollow = async (creatorId, btn) => {
+  if (!currentUser) {
+    alert("Debes iniciar sesión para seguir creadores");
+    return;
+  }
+
+  if (followingCreators.has(creatorId)) {
+    followingCreators.delete(creatorId);
+    btn.classList.remove('following');
+    btn.textContent = '+ Seguir';
+  } else {
+    followingCreators.add(creatorId);
+    btn.classList.add('following');
+    btn.textContent = '✓ Siguiendo';
+  }
+  saveLocalData();
+};
+
+// Compartir publicación
+window.sharePost = (mediaId) => {
+  const media = currentMedia.find(m => m.id === mediaId);
+  if (media && navigator.share) {
+    navigator.share({
+      title: media.title,
+      text: media.description,
+      url: window.location.href
     });
-  }catch(e){}
-}
-
-// REDIRECCIONES
-btn1.onclick = ()=>{
-  track("encuestas");
-  window.location.href = links.encuestas;
+  } else {
+    alert("Publicación: " + media.title);
+  }
 };
 
-btn2.onclick = ()=>{
-  track("ofertas");
-  window.location.href = links.ofertas;
+// Mostrar perfil del creador
+window.showCreatorProfile = async (creatorId, event) => {
+  event.preventDefault();
+
+  try {
+    const profRes = await fetch(`/api/user-profile/${creatorId}`);
+    const profData = await profRes.json();
+
+    const statsRes = await fetch(`/api/user-stats/${creatorId}`);
+    const statsData = await statsRes.json();
+
+    if (profData.ok && statsData.ok) {
+      const profile = profData.profile;
+      const stats = statsData.stats;
+      const isFollowing = followingCreators.has(creatorId);
+
+      const modalBody = document.getElementById("creatorModalBody");
+      modalBody.innerHTML = `
+        <div class="creator-profile">
+          <img src="${profile.photoURL || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22 fill=%22%23667eea%22/%3E%3C/svg%3E'}" class="creator-profile-avatar" alt="${profile.displayName}">
+          <div class="creator-profile-name">${profile.displayName || 'Creador'}</div>
+          <div class="creator-profile-bio">${profile.bio || 'Sin descripción'}</div>
+          
+          <div class="creator-profile-stats">
+            <div class="stat-item">
+              <div class="stat-number">${stats.subscribers || 0}</div>
+              <div class="stat-label">Seguidores</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">${stats.totalViews || 0}</div>
+              <div class="stat-label">Vistas</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-number">$${(stats.balance || 0).toFixed(2)}</div>
+              <div class="stat-label">Balance</div>
+            </div>
+          </div>
+
+          <button class="follow-btn ${isFollowing ? 'following' : 'follow'}" style="width: 100%; padding: 12px;" onclick="toggleFollowFromModal('${creatorId}', this)">
+            ${isFollowing ? '✓ Siguiendo' : '+ Seguir'}
+          </button>
+
+          ${profile.website ? `<p style="margin-top: 15px; font-size: 14px;"><a href="${profile.website}" target="_blank" style="color: #667eea; text-decoration: none;">🌐 ${profile.website}</a></p>` : ''}
+          ${profile.telegram ? `<p style="font-size: 14px;"><a href="https://t.me/${profile.telegram}" target="_blank" style="color: #667eea; text-decoration: none;">📱 Telegram</a></p>` : ''}
+          ${profile.whatsapp ? `<p style="font-size: 14px;"><a href="https://wa.me/${profile.whatsapp}" target="_blank" style="color: #667eea; text-decoration: none;">💬 WhatsApp</a></p>` : ''}
+        </div>
+      `;
+      creatorModal.classList.add("active");
+    }
+  } catch (error) {
+    console.error("Error cargando perfil:", error);
+  }
 };
 
-btn3.onclick = ()=>{
-  track("smart");
-  window.location.href = links.smart;
+// Toggle Follow desde modal
+window.toggleFollowFromModal = (creatorId, btn) => {
+  if (followingCreators.has(creatorId)) {
+    followingCreators.delete(creatorId);
+    btn.classList.remove('following');
+    btn.textContent = '+ Seguir';
+  } else {
+    followingCreators.add(creatorId);
+    btn.classList.add('following');
+    btn.textContent = '✓ Siguiendo';
+  }
+  saveLocalData();
 };
 
-btnXXX.onclick = ()=>{
-  track("exclusivo");
-  window.location.href = links.xxx;
+// Cerrar modal
+window.closeCreatorModal = () => {
+  creatorModal.classList.remove("active");
 };
 
-// CTA PRINCIPAL
-btnCTA.onclick = ()=>{
-  track("cta");
-  window.location.href = links.encuestas;
-};
+// Cerrar modal al hacer clic fuera
+creatorModal.addEventListener("click", (e) => {
+  if (e.target === creatorModal) {
+    closeCreatorModal();
+  }
+});
 
-// TEXTO DINÁMICO
-const textos = [
-  "Disponible hoy en tu país",
-  "Personas generando ingresos ahora",
-  "Empieza en menos de 2 minutos",
-  "Acceso activo en este momento"
-];
-
-let i = 0;
-
-setInterval(()=>{
-  document.getElementById("dynamic").innerText = textos[i];
-  i = (i + 1) % textos.length;
-},2000);
-
-// CONTADOR
-let c = 112;
-
-setInterval(()=>{
-  c += Math.floor(Math.random()*5);
-
-  document.getElementById("counter").innerText =
-    "👥 " + c + " personas viendo ahora";
-
-},3000);
+// Cargar datos al iniciar
+onAuthStateChanged(auth, (user) => {
+  currentUser = user;
+  loadLocalData();
+  loadPublicMedia();
+});
 </script>
-
-<!-- PAYPAL SDK -->
-<script src="https://www.paypal.com/sdk/js?client-id=AdTG7vm3UjJmP5iSnL3ZrK94N2xarac9yi2-NPnQ8yKUSleDefY01CmcJoFspQHg7x7PsBVypsRLV3sv&components=hosted-buttons"></script>
-
-
-<!-- PAYPAL BUTTON -->
-<script>
-paypal.HostedButtons({
-  hostedButtonId: "BLX9XGMDH74AQ",
-}).render("#paypal-container-BLX9XGMDH74AQ");
-</script>
-
-<!-- MONETIZACIÓN -->
-<script src="https://pl29119575.profitablecpmratenetwork.com/6d/3e/67/6d3e6767dd22a989b1098b2de8bb4409.js"></script>
-
-<div style="margin:20px 0;">
-<script async data-cfasync="false" src="https://pl29119572.profitablecpmratenetwork.com/23c43b5de2c234b3179eaf59ca6bea67/invoke.js"></script>
-
-<div id="container-23c43b5de2c234b3179eaf59ca6bea67"></div>
-</div>
 
 </body>
 </html>
